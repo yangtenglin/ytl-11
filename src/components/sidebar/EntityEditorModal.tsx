@@ -64,6 +64,9 @@ export const EntityEditorModal = ({
               description: '',
               avatarColor: getRandomColor(),
               notes: '',
+              motive: 0,
+              opportunity: 0,
+              risk: 0,
             };
         break;
       }
@@ -258,6 +261,61 @@ export const EntityEditorModal = ({
                   ))}
                 </div>
               </Field>
+
+              <div className="border-t border-cork-300 pt-4 mt-2">
+                <h3 className="font-display text-sm text-ink-700 mb-3">嫌疑度评分</h3>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="font-body text-xs text-ink-600">动机</label>
+                      <span className="font-display text-sm text-accent-gold font-bold">
+                        {(formData.motive as number) ?? 0}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={(formData.motive as number) ?? 0}
+                      onChange={(e) => updateField('motive', Number(e.target.value))}
+                      className="w-full h-2 bg-cork-200 rounded-lg appearance-none cursor-pointer accent-accent-gold"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="font-body text-xs text-ink-600">机会</label>
+                      <span className="font-display text-sm text-accent-green font-bold">
+                        {(formData.opportunity as number) ?? 0}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={(formData.opportunity as number) ?? 0}
+                      onChange={(e) => updateField('opportunity', Number(e.target.value))}
+                      className="w-full h-2 bg-cork-200 rounded-lg appearance-none cursor-pointer accent-accent-green"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="font-body text-xs text-ink-600">风险</label>
+                      <span className="font-display text-sm text-accent-red font-bold">
+                        {(formData.risk as number) ?? 0}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={(formData.risk as number) ?? 0}
+                      onChange={(e) => updateField('risk', Number(e.target.value))}
+                      className="w-full h-2 bg-cork-200 rounded-lg appearance-none cursor-pointer accent-accent-red"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <Field label="人物描述">
                 <textarea
                   value={(formData.description as string) || ''}

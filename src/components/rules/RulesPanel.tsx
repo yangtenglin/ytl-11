@@ -11,6 +11,7 @@ import {
   UserX,
   RefreshCw,
   X,
+  Trophy,
 } from 'lucide-react';
 import { useBoardStore } from '@/store/useBoardStore';
 import { cn } from '@/lib/utils';
@@ -45,7 +46,7 @@ const severityConfig: Record<ViolationSeverity, { icon: typeof AlertTriangle; la
 };
 
 export const RulesPanel = () => {
-  const { violations, rightPanelOpen, toggleRightPanel, runRulesCheck, selectEntity, characters, events, clues } = useBoardStore();
+  const { violations, rightPanelOpen, toggleRightPanel, runRulesCheck, selectEntity, characters, events, clues, setRightPanelTab } = useBoardStore();
   const [activeFilter, setActiveFilter] = useState<ViolationType | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -115,6 +116,13 @@ export const RulesPanel = () => {
           )}
         </div>
         <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => setRightPanelTab('scores')}
+            className="p-1 rounded hover:bg-cork-200 text-ink-500 hover:text-accent-gold transition-colors"
+            title="切换到嫌疑排行"
+          >
+            <Trophy size={14} />
+          </button>
           <button
             onClick={runRulesCheck}
             className="p-1 rounded hover:bg-cork-200 text-ink-500 hover:text-accent-green transition-colors"

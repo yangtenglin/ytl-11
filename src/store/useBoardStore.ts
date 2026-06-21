@@ -11,6 +11,7 @@ import type {
 import { generateId, now, clamp } from '@/utils/idGenerator';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
 import { useRulesEngine } from '@/hooks/useRulesEngine';
+import { calculateAllScores } from '@/lib/scoring';
 import { createMockData } from '@/data/mockData';
 
 const mockData = createMockData();
@@ -30,6 +31,18 @@ export const useBoardStore = create<BoardStore>((set, get) => {
     return { violations };
   };
 
+  const recalculateScores = (state: Partial<BoardStore>) => {
+    const current = get();
+    const merged = { ...current, ...state };
+    const suspectScores = calculateAllScores({
+      characters: merged.characters,
+      events: merged.events,
+      clues: merged.clues,
+      relations: merged.relations,
+    });
+    return { suspectScores };
+  };
+
   return {
     characters: mockData.characters,
     events: mockData.events,
@@ -46,6 +59,13 @@ export const useBoardStore = create<BoardStore>((set, get) => {
     relationSource: null,
     leftPanelOpen: true,
     rightPanelOpen: true,
+    suspectScores: calculateAllScores({
+      characters: mockData.characters,
+      events: mockData.events,
+      clues: mockData.clues,
+      relations: mockData.relations,
+    }),
+    rightPanelTab: 'scores',
 
     addCharacter: (data) => {
       const char: Character = {
@@ -56,7 +76,12 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         updatedAt: now(),
       };
       const newCharacters = [...get().characters, char];
-      set((state) => ({ characters: newCharacters, ...checkRules({ characters: newCharacters }) }));
+      const partial = { characters: newCharacters };
+      set((state) => ({
+        ...partial,
+        ...checkRules(partial),
+        ...recalculateScores(partial),
+      }));
     },
 
     updateCharacter: (id, data) => {
@@ -64,7 +89,12 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         const updated = state.characters.map((c) =>
           c.id === id ? { ...c, ...data, updatedAt: now() } : c
         );
-        return { characters: updated, ...checkRules({ characters: updated }) };
+        const partial = { characters: updated };
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
       });
     },
 
@@ -90,7 +120,11 @@ export const useBoardStore = create<BoardStore>((set, get) => {
           clues: newClues,
           selectedEntityId: state.selectedEntityId === id ? null : state.selectedEntityId,
         };
-        return { ...partial, ...checkRules(partial) };
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
       });
     },
 
@@ -104,7 +138,12 @@ export const useBoardStore = create<BoardStore>((set, get) => {
       };
       set((state) => {
         const newEvents = [...state.events, ev];
-        return { events: newEvents, ...checkRules({ events: newEvents }) };
+        const partial = { events: newEvents };
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
       });
     },
 
@@ -113,7 +152,12 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         const updated = state.events.map((e) =>
           e.id === id ? { ...e, ...data, updatedAt: now() } : e
         );
-        return { events: updated, ...checkRules({ events: updated }) };
+        const partial = { events: updated };
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
       });
     },
 
@@ -134,7 +178,11 @@ export const useBoardStore = create<BoardStore>((set, get) => {
           clues: newClues,
           selectedEntityId: state.selectedEntityId === id ? null : state.selectedEntityId,
         };
-        return { ...partial, ...checkRules(partial) };
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
       });
     },
 
@@ -191,7 +239,12 @@ export const useBoardStore = create<BoardStore>((set, get) => {
       };
       set((state) => {
         const newClues = [...state.clues, clue];
-        return { clues: newClues, ...checkRules({ clues: newClues }) };
+        const partial = { clues: newClues };
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
       });
     },
 
@@ -200,7 +253,12 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         const updated = state.clues.map((c) =>
           c.id === id ? { ...c, ...data, updatedAt: now() } : c
         );
-        return { clues: updated, ...checkRules({ clues: updated }) };
+        const partial = { clues: updated };
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
       });
     },
 
@@ -217,7 +275,11 @@ export const useBoardStore = create<BoardStore>((set, get) => {
           relations: newRelations,
           selectedEntityId: state.selectedEntityId === id ? null : state.selectedEntityId,
         };
-        return { ...partial, ...checkRules(partial) };
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
       });
     },
 
@@ -227,23 +289,42 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         id: generateId(),
         createdAt: now(),
       };
-      set((state) => ({
-        relations: [...state.relations, rel],
-        isCreatingRelation: false,
-        relationSource: null,
-      }));
+      set((state) => {
+        const newRelations = [...state.relations, rel];
+        const partial = {
+          relations: newRelations,
+          isCreatingRelation: false,
+          relationSource: null,
+        };
+        return {
+          ...partial,
+          ...recalculateScores(partial),
+        };
+      });
     },
 
     updateRelation: (id, data) => {
-      set((state) => ({
-        relations: state.relations.map((r) =>
+      set((state) => {
+        const newRelations = state.relations.map((r) =>
           r.id === id ? { ...r, ...data } : r
-        ),
-      }));
+        );
+        const partial = { relations: newRelations };
+        return {
+          ...partial,
+          ...recalculateScores(partial),
+        };
+      });
     },
 
     deleteRelation: (id) => {
-      set((state) => ({ relations: state.relations.filter((r) => r.id !== id) }));
+      set((state) => {
+        const newRelations = state.relations.filter((r) => r.id !== id);
+        const partial = { relations: newRelations };
+        return {
+          ...partial,
+          ...recalculateScores(partial),
+        };
+      });
     },
 
     selectEntity: (id, type) => {
@@ -320,12 +401,27 @@ export const useBoardStore = create<BoardStore>((set, get) => {
       set({ violations });
     },
 
+    calculateSuspectScores: () => {
+      const state = get();
+      const suspectScores = calculateAllScores({
+        characters: state.characters,
+        events: state.events,
+        clues: state.clues,
+        relations: state.relations,
+      });
+      set({ suspectScores });
+    },
+
     toggleLeftPanel: () => {
       set((state) => ({ leftPanelOpen: !state.leftPanelOpen }));
     },
 
     toggleRightPanel: () => {
       set((state) => ({ rightPanelOpen: !state.rightPanelOpen }));
+    },
+
+    setRightPanelTab: (tab) => {
+      set({ rightPanelTab: tab });
     },
 
     exportData: () => {

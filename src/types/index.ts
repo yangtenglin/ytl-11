@@ -15,6 +15,28 @@ export interface Character extends BaseEntity {
   description: string;
   avatarColor: string;
   notes?: string;
+  motive: number;
+  opportunity: number;
+  risk: number;
+}
+
+export interface SuspectScore {
+  characterId: string;
+  motive: number;
+  opportunity: number;
+  risk: number;
+  total: number;
+  motiveBreakdown: ScoreBreakdownItem[];
+  opportunityBreakdown: ScoreBreakdownItem[];
+  riskBreakdown: ScoreBreakdownItem[];
+}
+
+export interface ScoreBreakdownItem {
+  source: string;
+  sourceId: string;
+  sourceType: 'base' | 'clue' | 'relation' | 'event';
+  value: number;
+  label: string;
 }
 
 export interface EventEntity extends BaseEntity {
@@ -88,6 +110,8 @@ export interface DetectiveBoardState {
   relationSource: { id: string; type: EntityType } | null;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
+  suspectScores: SuspectScore[];
+  rightPanelTab: 'rules' | 'scores';
 }
 
 export interface DetectiveBoardActions {
@@ -114,8 +138,10 @@ export interface DetectiveBoardActions {
   startRelationCreation: (id: string, type: EntityType) => void;
   cancelRelationCreation: () => void;
   runRulesCheck: () => void;
+  calculateSuspectScores: () => void;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
+  setRightPanelTab: (tab: 'rules' | 'scores') => void;
   exportData: () => string;
   importData: (json: string) => void;
   clearAll: () => void;

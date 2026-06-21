@@ -30,10 +30,14 @@ const typeColors: Record<EntityType, string> = {
 };
 
 export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
-  const { selectEntity, selectedEntityId, startRelationCreation, deleteClue, deleteCharacter, deleteEvent, deleteLocation } =
+  const { selectEntity, selectedEntityId, startRelationCreation, deleteClue, deleteCharacter, deleteEvent, deleteLocation, suspectScores } =
     useBoardStore();
   const Icon = iconMap[entity.type];
   const isSelected = selectedEntityId === entity.id;
+
+  const score = entity.type === 'character'
+    ? suspectScores.find((s) => s.characterId === entity.id)
+    : null;
 
   const handleClick = () => {
     selectEntity(entity.id, entity.type);
@@ -72,12 +76,44 @@ export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
     switch (entity.type) {
       case 'character':
         return (
-          <div className="flex items-center gap-2 mt-1">
-            <span
-              className="w-3 h-3 rounded-full shadow-inner"
-              style={{ backgroundColor: entity.avatarColor }}
-            />
-            <span className="text-xs text-ink-500 font-body">{entity.role || '未设定身份'}</span>
+          <div className="mt-1.5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span
+                className="w-3 h-3 rounded-full shadow-inner"
+                style={{ backgroundColor: entity.avatarColor }}
+              />
+              <span className="text-xs text-ink-500 font-body">{entity.role || '未设定身份'}</span>
+            </div>
+            {score && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-display text-ink-600">综合嫌疑度</span>
+                  <span className="text-[11px] font-display font-bold text-accent-red">{score.total}</span>
+                </div>
+                <div className="h-1.5 bg-cork-200 rounded-full overflow-hidden flex">
+                  <div
+                    className="h-full bg-accent-gold transition-all duration-300"
+                    style={{ width: `${score.motive}%` }}
+                    title={`动机: ${score.motive}`}
+                  />
+                  <div
+                    className="h-full bg-accent-green transition-all duration-300"
+                    style={{ width: `${score.opportunity}%` }}
+                    title={`机会: ${score.opportunity}`}
+                  />
+                  <div
+                    className="h-full bg-accent-red transition-all duration-300"
+                    style={{ width: `${score.risk}%` }}
+                    title={`风险: ${score.risk}`}
+                  />
+                </div>
+                <div className="flex justify-between text-[9px] font-body text-ink-400">
+                  <span>动机 {score.motive}</span>
+                  <span>机会 {score.opportunity}</span>
+                  <span>风险 {score.risk}</span>
+                </div>
+              </div>
+            )}
           </div>
         );
       case 'event':
