@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Trophy,
   ChevronLeft,
@@ -14,10 +14,20 @@ import {
   Users,
   Clock,
   Search,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useBoardStore } from '@/store/useBoardStore';
 import { cn } from '@/lib/utils';
 import type { ScoreBreakdownItem, SuspectScore } from '@/types';
+
+type SortKey = 'total' | 'motive' | 'opportunity' | 'risk';
+
+const sortOptions: { key: SortKey; label: string; icon: typeof Target }[] = [
+  { key: 'total', label: '综合', icon: Trophy },
+  { key: 'motive', label: '动机', icon: Target },
+  { key: 'opportunity', label: '机会', icon: Zap },
+  { key: 'risk', label: '风险', icon: AlertTriangle },
+];
 
 const sourceIconMap: Record<string, typeof Target> = {
   base: Target,
@@ -44,6 +54,9 @@ export const ScoresPanel = () => {
     setRightPanelTab,
   } = useBoardStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortKey>('total');
+  const [threshold, setThreshold] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const getCharacterName = (id: string): string => {
     return characters.find((c) => c.id === id)?.name || id;
@@ -69,6 +82,11 @@ export const ScoresPanel = () => {
     return 'bg-accent-green';
   };
 
+  const processedScores = useMemo(() => {
+    const filtered = suspectScores.filter((s) => s[sortBy] >= threshold);
+    return [...filtered].sort((a, b) => b[sortBy] - a[sortBy]);
+  }, [suspectScores, sortBy, threshold]);
+
   if (!rightPanelOpen) {
     return (
       <button
@@ -86,13 +104,23 @@ export const ScoresPanel = () => {
         <div className="flex items-center gap-1.5">
           <Trophy className="text-accent-gold" size={16} />
           <h2 className="font-display text-sm text-ink-800 tracking-wide">嫌疑度排行</h2>
-          {suspectScores.length > 0 && (
+          {processedScores.length > 0 && (
             <span className="min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center bg-accent-gold text-ink-900">
-              {suspectScores.length}
+              {processedScores.length}
             </span>
           )}
         </div>
         <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => setFilterOpen(!filterOpen)}
+            className={cn(
+              'p-1 rounded hover:bg-cork-200 transition-colors',
+              filterOpen ? 'text-accent-gold bg-cork-200' : 'text-ink-500'
+            )}
+            title="筛选与排序"
+          >
+            <SlidersHorizontal size={14} />
+          </button>
           <button
             onClick={() => setRightPanelTab('rules')}
             className="p-1 rounded hover:bg-cork-200 text-ink-500 hover:text-accent-red transition-colors"
@@ -116,17 +144,68 @@ export const ScoresPanel = () => {
         </div>
       </div>
 
+      {filterOpen && (
+        <div className="px-3 py-2.5 border-b border-cork-300 bg-parchment-50 space-y-2.5">
+          <div>
+            <div className="text-[10px] font-display text-ink-500 mb-1.5">排序方式</div>
+            <div className="flex gap-1">
+              {sortOptions.map((opt) => {
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => setSortBy(opt.key)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-1 rounded text-[10px] font-display transition-colors',
+                      sortBy === opt.key
+                        ? 'bg-accent-gold/20 text-accent-gold border border-accent-gold/40'
+                        : 'bg-cork-100 text-ink-500 border border-cork-300 hover:bg-cork-200'
+                    )}
+                  >
+                    <Icon size={10} />
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[10px] font-display text-ink-500">
+                最低阈值（{sortOptions.find((o) => o.key === sortBy)?.label}）
+              </span>
+              <span className="text-[10px] font-display font-bold text-accent-gold">
+                {threshold}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={threshold}
+              onChange={(e) => setThreshold(Number(e.target.value))}
+              className="w-full h-1.5 bg-cork-200 rounded-lg appearance-none cursor-pointer accent-accent-gold"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
-        {suspectScores.length === 0 ? (
+        {processedScores.length === 0 ? (
           <div className="text-center py-12 text-ink-400">
             <div className="w-12 h-12 mx-auto rounded-full bg-accent-gold/10 flex items-center justify-center mb-2">
               <Trophy className="text-accent-gold" size={20} />
             </div>
             <div className="font-display text-sm mb-1">暂无数据</div>
-            <div className="text-xs font-body">请先创建人物角色</div>
+            <div className="text-xs font-body">
+              {suspectScores.length > 0
+                ? '当前阈值下无符合条件的人物'
+                : '请先创建人物角色'}
+            </div>
           </div>
         ) : (
-          suspectScores.map((score, index) => (
+          processedScores.map((score, index) => (
             <ScoreItem
               key={score.characterId}
               score={score}
@@ -140,6 +219,7 @@ export const ScoresPanel = () => {
               onJump={handleJump}
               getScoreLevel={getScoreLevel}
               getScoreBgLevel={getScoreBgLevel}
+              sortBy={sortBy}
             />
           ))
         )}
@@ -158,6 +238,7 @@ interface ScoreItemProps {
   onJump: (id: string) => void;
   getScoreLevel: (score: number) => string;
   getScoreBgLevel: (score: number) => string;
+  sortBy: SortKey;
 }
 
 function ScoreItem({
@@ -170,6 +251,7 @@ function ScoreItem({
   onJump,
   getScoreLevel,
   getScoreBgLevel,
+  sortBy,
 }: ScoreItemProps) {
   return (
     <div
@@ -209,9 +291,11 @@ function ScoreItem({
           </div>
 
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-body text-ink-500">综合嫌疑度</span>
-            <span className={cn('text-lg font-display font-bold', getScoreLevel(score.total))}>
-              {score.total}
+            <span className="text-[10px] font-body text-ink-500">
+              {sortBy === 'total' ? '综合嫌疑度' : sortOptions.find((o) => o.key === sortBy)?.label + '分'}
+            </span>
+            <span className={cn('text-lg font-display font-bold', getScoreLevel(score[sortBy]))}>
+              {score[sortBy]}
             </span>
           </div>
 
@@ -221,18 +305,21 @@ function ScoreItem({
               value={score.motive}
               color="bg-accent-gold"
               icon={<Target size={9} />}
+              active={sortBy === 'motive'}
             />
             <ScoreBar
               label="机会"
               value={score.opportunity}
               color="bg-accent-green"
               icon={<Zap size={9} />}
+              active={sortBy === 'opportunity'}
             />
             <ScoreBar
               label="风险"
               value={score.risk}
               color="bg-accent-red"
               icon={<AlertTriangle size={9} />}
+              active={sortBy === 'risk'}
             />
           </div>
         </div>
@@ -286,23 +373,25 @@ function ScoreBar({
   value,
   color,
   icon,
+  active,
 }: {
   label: string;
   value: number;
   color: string;
   icon: React.ReactNode;
+  active?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className={cn('flex items-center gap-1.5', active && 'bg-accent-gold/5 -mx-1 px-1 rounded')}>
       <span className="text-ink-500 flex-shrink-0">{icon}</span>
-      <span className="text-[9px] font-body text-ink-500 w-6 flex-shrink-0">{label}</span>
+      <span className={cn('text-[9px] font-body w-6 flex-shrink-0', active ? 'text-ink-800 font-bold' : 'text-ink-500')}>{label}</span>
       <div className="flex-1 h-1.5 bg-cork-200 rounded-full overflow-hidden">
         <div
-          className={cn('h-full transition-all duration-300', color)}
+          className={cn('h-full transition-all duration-300', color, active && 'h-2')}
           style={{ width: `${value}%` }}
         />
       </div>
-      <span className="text-[9px] font-display font-bold text-ink-600 w-6 text-right flex-shrink-0">
+      <span className={cn('text-[9px] font-display font-bold w-6 text-right flex-shrink-0', active ? 'text-ink-800' : 'text-ink-600')}>
         {value}
       </span>
     </div>
