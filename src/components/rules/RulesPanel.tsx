@@ -13,6 +13,9 @@ import {
   X,
   Trophy,
   MapPin,
+  ListPlus,
+  ListChecks,
+  Sparkles,
 } from 'lucide-react';
 import { useBoardStore } from '@/store/useBoardStore';
 import { cn } from '@/lib/utils';
@@ -47,7 +50,21 @@ const severityConfig: Record<ViolationSeverity, { icon: typeof AlertTriangle; la
 };
 
 export const RulesPanel = () => {
-  const { violations, rightPanelOpen, toggleRightPanel, runRulesCheck, selectEntity, characters, events, clues, setRightPanelTab } = useBoardStore();
+  const {
+    violations,
+    rightPanelOpen,
+    toggleRightPanel,
+    runRulesCheck,
+    selectEntity,
+    characters,
+    events,
+    clues,
+    setRightPanelTab,
+    explanationQueue,
+    toggleExplanationQueue,
+    addAllUnexplainedToQueue,
+    setExplanationQueueOpen,
+  } = useBoardStore();
   const [activeFilter, setActiveFilter] = useState<ViolationType | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -147,33 +164,56 @@ export const RulesPanel = () => {
         </div>
       </div>
 
-      <div className="flex border-b border-cork-300 bg-parchment-50">
-        {([
-          { key: 'all', label: '全部', count: violations.length },
-          { key: 'time_conflict', ...typeConfig.time_conflict, count: countByType.time_conflict },
-          { key: 'unexplained_clue', ...typeConfig.unexplained_clue, count: countByType.unexplained_clue },
-          { key: 'isolated_character', ...typeConfig.isolated_character, count: countByType.isolated_character },
-        ] as const).map((tab) => {
-          const Icon = (tab as { icon?: typeof Clock }).icon || Info;
-          const isActive = activeFilter === tab.key;
-          return (
+      <div className="border-b border-cork-300 bg-parchment-50">
+        <div className="flex">
+          {([
+            { key: 'all', label: '全部', count: violations.length },
+            { key: 'time_conflict', ...typeConfig.time_conflict, count: countByType.time_conflict },
+            { key: 'unexplained_clue', ...typeConfig.unexplained_clue, count: countByType.unexplained_clue },
+            { key: 'isolated_character', ...typeConfig.isolated_character, count: countByType.isolated_character },
+          ] as const).map((tab) => {
+            const Icon = (tab as { icon?: typeof Clock }).icon || Info;
+            const isActive = activeFilter === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveFilter(tab.key as ViolationType | 'all')}
+                className={cn(
+                  'flex-1 flex flex-col items-center gap-0.5 py-1.5 px-0.5 transition-all relative',
+                  isActive
+                    ? 'text-ink-800 bg-parchment-100'
+                    : 'text-ink-500 hover:text-ink-700 hover:bg-cork-100'
+                )}
+              >
+                {tab.key !== 'all' && <Icon size={13} className={(tab as { color?: string }).color} />}
+                <span className="text-[9px] font-display leading-tight">{tab.label}</span>
+                <span className="text-[9px] font-body">{tab.count}</span>
+                {isActive && <span className="absolute bottom-0 left-1 right-1 h-0.5 bg-accent-gold rounded-full" />}
+              </button>
+            );
+          })}
+        </div>
+        {(activeFilter === 'unexplained_clue' || activeFilter === 'all') && countByType.unexplained_clue > 0 && (
+          <div className="flex items-center gap-1 px-2 py-1.5 border-t border-cork-200/60 bg-parchment-100/30">
             <button
-              key={tab.key}
-              onClick={() => setActiveFilter(tab.key as ViolationType | 'all')}
-              className={cn(
-                'flex-1 flex flex-col items-center gap-0.5 py-1.5 px-0.5 transition-all relative',
-                isActive
-                  ? 'text-ink-800 bg-parchment-100'
-                  : 'text-ink-500 hover:text-ink-700 hover:bg-cork-100'
-              )}
+              onClick={() => {
+                addAllUnexplainedToQueue();
+                setExplanationQueueOpen(true);
+              }}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] font-body bg-accent-gold/20 text-accent-gold hover:bg-accent-gold/30 transition-colors"
             >
-              {tab.key !== 'all' && <Icon size={13} className={(tab as { color?: string }).color} />}
-              <span className="text-[9px] font-display leading-tight">{tab.label}</span>
-              <span className="text-[9px] font-body">{tab.count}</span>
-              {isActive && <span className="absolute bottom-0 left-1 right-1 h-0.5 bg-accent-gold rounded-full" />}
+              <Sparkles size={10} />
+              全部加入解释队列
             </button>
-          );
-        })}
+            <button
+              onClick={() => setExplanationQueueOpen(true)}
+              className="flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] font-body bg-accent-purple/10 text-accent-purple hover:bg-accent-purple/20 transition-colors"
+            >
+              <ListChecks size={10} />
+              打开队列
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
@@ -186,7 +226,19 @@ export const RulesPanel = () => {
             <div className="text-xs font-body">未发现规则问题</div>
           </div>
         ) : (
-          filtered.map((v) => <ViolationItem key={v.id} violation={v} expandedId={expandedId} setExpandedId={setExpandedId} getEntityName={getEntityName} onJump={handleJump} />)
+          filtered.map((v) => (
+            <ViolationItem
+              key={v.id}
+              violation={v}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              getEntityName={getEntityName}
+              onJump={handleJump}
+              explanationQueue={explanationQueue}
+              toggleExplanationQueue={toggleExplanationQueue}
+              setExplanationQueueOpen={setExplanationQueueOpen}
+            />
+          ))
         )}
       </div>
     </div>
@@ -199,18 +251,30 @@ function ViolationItem({
   setExpandedId,
   getEntityName,
   onJump,
+  explanationQueue,
+  toggleExplanationQueue,
+  setExplanationQueueOpen,
 }: {
   violation: RuleViolation;
   expandedId: string | null;
   setExpandedId: (id: string | null) => void;
   getEntityName: (id: string, type?: string) => string;
   onJump: (id: string) => void;
+  explanationQueue: string[];
+  toggleExplanationQueue: (clueId: string) => void;
+  setExplanationQueueOpen: (open: boolean) => void;
 }) {
   const isExpanded = expandedId === violation.id;
   const sev = severityConfig[violation.severity];
   const tc = typeConfig[violation.type];
   const TypeIcon = tc.icon;
   const SevIcon = sev.icon;
+
+  const isUnexplainedClue = violation.type === 'unexplained_clue';
+  const relatedClueId = isUnexplainedClue && violation.relatedEntityIds.length > 0
+    ? violation.relatedEntityIds[0]
+    : null;
+  const inQueue = relatedClueId ? explanationQueue.includes(relatedClueId) : false;
 
   return (
     <div
@@ -220,24 +284,50 @@ function ViolationItem({
         sev.border
       )}
     >
-      <button
-        onClick={() => setExpandedId(isExpanded ? null : violation.id)}
-        className="w-full p-2.5 flex items-start gap-2 text-left hover:bg-black/5 transition-colors"
-      >
-        <div className={cn('flex-shrink-0 mt-0.5', tc.color)}>
-          <TypeIcon size={14} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1 mb-0.5">
-            <SevIcon size={11} className={tc.color} />
-            <span className="text-[10px] font-display text-ink-600 uppercase tracking-wide">{sev.label}</span>
+      <div className="flex items-start">
+        <button
+          onClick={() => setExpandedId(isExpanded ? null : violation.id)}
+          className="flex-1 p-2.5 flex items-start gap-2 text-left hover:bg-black/5 transition-colors min-w-0"
+        >
+          <div className={cn('flex-shrink-0 mt-0.5', tc.color)}>
+            <TypeIcon size={14} />
           </div>
-          <div className="text-xs font-body text-ink-800 leading-snug">{violation.message}</div>
-        </div>
-        <div className="flex-shrink-0">
-          {isExpanded ? <ChevronLeft size={12} className="text-ink-400 rotate-[-90deg]" /> : <ChevronLeft size={12} className="text-ink-400 rotate-90" />}
-        </div>
-      </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1 mb-0.5">
+              <SevIcon size={11} className={tc.color} />
+              <span className="text-[10px] font-display text-ink-600 uppercase tracking-wide">{sev.label}</span>
+            </div>
+            <div className="text-xs font-body text-ink-800 leading-snug">{violation.message}</div>
+          </div>
+          <div className="flex-shrink-0 flex items-center gap-0.5">
+            {isUnexplainedClue && relatedClueId && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExplanationQueue(relatedClueId);
+                  if (!inQueue) {
+                    setExplanationQueueOpen(true);
+                  }
+                }}
+                className={cn(
+                  'p-1 rounded transition-colors',
+                  inQueue
+                    ? 'bg-accent-gold/20 text-accent-gold'
+                    : 'hover:bg-cork-200/70 text-ink-400 hover:text-accent-gold'
+                )}
+                title={inQueue ? '移出解释队列' : '加入解释队列'}
+              >
+                {inQueue ? <ListChecks size={12} /> : <ListPlus size={12} />}
+              </button>
+            )}
+            {isExpanded ? (
+              <ChevronLeft size={12} className="text-ink-400 rotate-[-90deg]" />
+            ) : (
+              <ChevronLeft size={12} className="text-ink-400 rotate-90" />
+            )}
+          </div>
+        </button>
+      </div>
 
       {isExpanded && (
         <div className="px-2.5 pb-2.5 pt-0 border-t border-black/5">

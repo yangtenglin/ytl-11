@@ -1,4 +1,4 @@
-import { User, Calendar, MapPin, Search, Edit3, Trash2, Link as LinkIcon, Brain } from 'lucide-react';
+import { User, Calendar, MapPin, Search, Edit3, Trash2, Link as LinkIcon, Brain, ListPlus, ListChecks } from 'lucide-react';
 import type { AnyEntity, EntityType, Hypothesis } from '@/types';
 import { useBoardStore } from '@/store/useBoardStore';
 import {
@@ -51,6 +51,9 @@ export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
     suspectScores,
     evidences,
     characters,
+    explanationQueue,
+    toggleExplanationQueue,
+    setExplanationQueueOpen,
   } = useBoardStore();
   const Icon = iconMap[entity.type];
   const isSelected = selectedEntityId === entity.id;
@@ -166,23 +169,40 @@ export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
         return entity.locationType ? (
           <div className="text-xs text-ink-500 font-body mt-1">{entity.locationType}</div>
         ) : null;
-      case 'clue':
+      case 'clue': {
+        const inQueue = explanationQueue.includes(entity.id);
         return (
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-ink-500 font-body">
-              {clueTypeLabels[entity.clueType]}
-            </span>
-            {entity.isExplained ? (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-accent-green/20 text-accent-green font-body">
-                已解释
+          <div className="space-y-1 mt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-ink-500 font-body">
+                {clueTypeLabels[entity.clueType]}
               </span>
-            ) : (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-accent-red/20 text-accent-red font-body">
-                待解释
-              </span>
+              {entity.isExplained ? (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-accent-green/20 text-accent-green font-body">
+                  已解释
+                </span>
+              ) : (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-accent-red/20 text-accent-red font-body">
+                  待解释
+                </span>
+              )}
+            </div>
+            {inQueue && (
+              <div
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-accent-gold/20 text-accent-gold font-body cursor-pointer hover:bg-accent-gold/30 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExplanationQueueOpen(true);
+                }}
+                title="点击打开解释队列"
+              >
+                <ListChecks size={10} />
+                已在解释队列
+              </div>
             )}
           </div>
         );
+      }
       case 'hypothesis':
         return (
           <div className="mt-1.5 space-y-1.5">
@@ -295,6 +315,34 @@ export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
           >
             <LinkIcon size={14} />
           </button>
+          {entity.type === 'clue' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExplanationQueue(entity.id);
+                if (!explanationQueue.includes(entity.id)) {
+                  setExplanationQueueOpen(true);
+                }
+              }}
+              className={cn(
+                'p-1 rounded hover:bg-cork-200 transition-colors',
+                explanationQueue.includes(entity.id)
+                  ? 'text-accent-gold'
+                  : 'text-ink-500 hover:text-accent-gold'
+              )}
+              title={
+                explanationQueue.includes(entity.id)
+                  ? '移出解释队列'
+                  : '加入解释队列'
+              }
+            >
+              {explanationQueue.includes(entity.id) ? (
+                <ListChecks size={14} />
+              ) : (
+                <ListPlus size={14} />
+              )}
+            </button>
+          )}
           <button
             onClick={handleEdit}
             className="p-1 rounded hover:bg-cork-200 text-ink-500 hover:text-ink-700 transition-colors"

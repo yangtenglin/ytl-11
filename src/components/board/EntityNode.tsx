@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { User, Calendar, MapPin, Search, Edit3, Link as LinkIcon, Brain, CheckCircle2 } from 'lucide-react';
+import { User, Calendar, MapPin, Search, Edit3, Link as LinkIcon, Brain, CheckCircle2, ListPlus, ListChecks } from 'lucide-react';
 import type { AnyEntity, EntityType, Hypothesis } from '@/types';
 import { useBoardStore } from '@/store/useBoardStore';
 import {
@@ -56,6 +56,9 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
     zoom,
     evidences,
     toggleHypothesisAccepted,
+    explanationQueue,
+    toggleExplanationQueue,
+    setExplanationQueueOpen,
   } = useBoardStore();
 
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -200,13 +203,29 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
         return entity.locationType ? (
           <div className="text-[10px] text-ink-500 font-body">{entity.locationType}</div>
         ) : null;
-      case 'clue':
+      case 'clue': {
+        const inQueue = explanationQueue.includes(entity.id);
         return (
-          <div className="text-[10px] text-ink-500 font-body">
-            {clueTypeLabels[entity.clueType]}
-            {!entity.isExplained && <span className="text-accent-red ml-1">·待解释</span>}
+          <div className="space-y-0.5">
+            <div className="text-[10px] text-ink-500 font-body">
+              {clueTypeLabels[entity.clueType]}
+              {!entity.isExplained && <span className="text-accent-red ml-1">·待解释</span>}
+            </div>
+            {inQueue && (
+              <div
+                className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded bg-accent-gold/20 text-accent-gold font-body cursor-pointer hover:bg-accent-gold/30 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExplanationQueueOpen(true);
+                }}
+              >
+                <ListChecks size={8} />
+                队列中
+              </div>
+            )}
           </div>
         );
+      }
       case 'hypothesis':
         return (
           <div className="space-y-1">
@@ -368,6 +387,34 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
         >
           <LinkIcon size={11} />
         </button>
+        {entity.type === 'clue' && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleExplanationQueue(entity.id);
+              if (!explanationQueue.includes(entity.id)) {
+                setExplanationQueueOpen(true);
+              }
+            }}
+            className={cn(
+              'p-0.5 rounded hover:bg-cork-200 transition-colors',
+              explanationQueue.includes(entity.id)
+                ? 'text-accent-gold'
+                : 'text-ink-400 hover:text-accent-gold'
+            )}
+            title={
+              explanationQueue.includes(entity.id)
+                ? '移出解释队列'
+                : '加入解释队列'
+            }
+          >
+            {explanationQueue.includes(entity.id) ? (
+              <ListChecks size={11} />
+            ) : (
+              <ListPlus size={11} />
+            )}
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();

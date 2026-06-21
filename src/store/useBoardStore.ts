@@ -102,6 +102,9 @@ export const useBoardStore = create<BoardStore>((set, get) => {
       relations: mockData.relations,
     }),
     rightPanelTab: 'scores',
+    explanationQueue: [],
+    explanationHistory: [],
+    explanationQueueOpen: false,
 
     addCharacter: (data) => {
       const char: Character = {
@@ -648,7 +651,140 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         selectedEntityId: null,
         selectedEntityType: null,
         violations: [],
+        explanationQueue: [],
+        explanationHistory: [],
+        explanationQueueOpen: false,
       });
+    },
+
+    addToExplanationQueue: (clueId) => {
+      set((state) => {
+        if (state.explanationQueue.includes(clueId)) return {};
+        return { explanationQueue: [...state.explanationQueue, clueId] };
+      });
+    },
+
+    removeFromExplanationQueue: (clueId) => {
+      set((state) => ({
+        explanationQueue: state.explanationQueue.filter((id) => id !== clueId),
+      }));
+    },
+
+    toggleExplanationQueue: (clueId) => {
+      set((state) => {
+        if (state.explanationQueue.includes(clueId)) {
+          return { explanationQueue: state.explanationQueue.filter((id) => id !== clueId) };
+        }
+        return { explanationQueue: [...state.explanationQueue, clueId] };
+      });
+    },
+
+    clearExplanationQueue: () => {
+      set({ explanationQueue: [] });
+    },
+
+    addAllUnexplainedToQueue: () => {
+      set((state) => {
+        const unexplainedIds = state.clues
+          .filter((c) => !c.isExplained)
+          .map((c) => c.id);
+        const merged = Array.from(new Set([...state.explanationQueue, ...unexplainedIds]));
+        return { explanationQueue: merged };
+      });
+    },
+
+    batchExplainClues: (clueIds, explanation) => {
+      set((state) => {
+        const historyItems = clueIds.map((clueId) => {
+          const clue = state.clues.find((c) => c.id === clueId);
+          return {
+            clueId,
+            wasExplained: !!(clue?.isExplained),
+            oldExplanation: clue?.explanation,
+            oldIsExplained: !!(clue?.isExplained),
+            timestamp: now(),
+          };
+        });
+
+        const updatedClues = state.clues.map((c) =>
+          clueIds.includes(c.id)
+            ? { ...c, isExplained: true, explanation, updatedAt: now() }
+            : c
+        );
+
+        const updatedQueue = state.explanationQueue.filter(
+          (id) => !clueIds.includes(id)
+        );
+
+        const partial = {
+          clues: updatedClues,
+          explanationQueue: updatedQueue,
+          explanationHistory: [...state.explanationHistory, ...historyItems],
+        };
+
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
+      });
+    },
+
+    undoExplanation: () => {
+      const state = get();
+      if (state.explanationHistory.length === 0) return null;
+
+      const lastItem = state.explanationHistory[state.explanationHistory.length - 1];
+      const itemsToUndo: typeof state.explanationHistory = [];
+
+      const lastTs = lastItem.timestamp;
+      for (let i = state.explanationHistory.length - 1; i >= 0; i--) {
+        if (state.explanationHistory[i].timestamp === lastTs) {
+          itemsToUndo.unshift(state.explanationHistory[i]);
+        } else {
+          break;
+        }
+      }
+
+      set((state) => {
+        const undoIds = itemsToUndo.map((item) => item.clueId);
+        const updatedClues = state.clues.map((c) => {
+          const undoItem = itemsToUndo.find((item) => item.clueId === c.id);
+          if (!undoItem) return c;
+          return {
+            ...c,
+            isExplained: undoItem.oldIsExplained,
+            explanation: undoItem.oldExplanation,
+            updatedAt: now(),
+          };
+        });
+
+        const newHistory = state.explanationHistory.slice(
+          0,
+          state.explanationHistory.length - itemsToUndo.length
+        );
+
+        const partial = {
+          clues: updatedClues,
+          explanationHistory: newHistory,
+        };
+
+        return {
+          ...partial,
+          ...checkRules(partial),
+          ...recalculateScores(partial),
+        };
+      });
+
+      return lastItem;
+    },
+
+    toggleExplanationQueueOpen: () => {
+      set((state) => ({ explanationQueueOpen: !state.explanationQueueOpen }));
+    },
+
+    setExplanationQueueOpen: (open) => {
+      set({ explanationQueueOpen: open });
     },
   };
 });

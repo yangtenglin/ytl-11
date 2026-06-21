@@ -3,6 +3,7 @@ import { EntityNode } from './EntityNode';
 import { RelationEdge } from './RelationEdge';
 import { EntityEditorModal } from '@/components/sidebar/EntityEditorModal';
 import { RelationEditorModal } from './RelationEditorModal';
+import { ExplanationQueuePanel } from '@/components/explanation/ExplanationQueuePanel';
 import { useBoardStore } from '@/store/useBoardStore';
 import { X } from 'lucide-react';
 import type { EntityType, Relation } from '@/types';
@@ -137,10 +138,13 @@ export const BoardCanvas = () => {
   return (
     <div
       ref={canvasRef}
-      className="flex-1 relative overflow-hidden bg-cork-900 bg-cork-texture"
+      className="flex-1 relative overflow-hidden bg-cork-900 bg-cork-texture flex"
       onMouseDown={handleCanvasMouseDown}
       style={{ cursor: isPanning ? 'grabbing' : isCreatingRelation ? 'crosshair' : 'grab' }}
     >
+      <ExplanationQueuePanel />
+
+      <div className="flex-1 relative min-w-0">
       {isCreatingRelation && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-accent-gold text-ink-900 px-4 py-2 rounded-full shadow-lg flex items-center gap-2 font-display text-sm animate-pulse-glow">
           <span>点击另一个实体建立关系...</span>
@@ -231,6 +235,7 @@ export const BoardCanvas = () => {
         sourceType={relSource?.type}
         editingRelation={editingRelation}
       />
+      </div>
     </div>
   );
 };

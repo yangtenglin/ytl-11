@@ -124,6 +124,14 @@ export interface RuleViolation {
   details: string;
 }
 
+export interface ExplanationHistoryItem {
+  clueId: string;
+  wasExplained: boolean;
+  oldExplanation?: string;
+  oldIsExplained: boolean;
+  timestamp: string;
+}
+
 export interface DetectiveBoardState {
   characters: Character[];
   events: EventEntity[];
@@ -146,6 +154,9 @@ export interface DetectiveBoardState {
   rightPanelOpen: boolean;
   suspectScores: SuspectScore[];
   rightPanelTab: 'rules' | 'scores' | 'commute';
+  explanationQueue: string[];
+  explanationHistory: ExplanationHistoryItem[];
+  explanationQueueOpen: boolean;
 }
 
 export interface DetectiveBoardActions {
@@ -191,6 +202,15 @@ export interface DetectiveBoardActions {
   exportData: () => string;
   importData: (json: string) => void;
   clearAll: () => void;
+  addToExplanationQueue: (clueId: string) => void;
+  removeFromExplanationQueue: (clueId: string) => void;
+  toggleExplanationQueue: (clueId: string) => void;
+  clearExplanationQueue: () => void;
+  addAllUnexplainedToQueue: () => void;
+  batchExplainClues: (clueIds: string[], explanation: string) => void;
+  undoExplanation: () => ExplanationHistoryItem | null;
+  toggleExplanationQueueOpen: () => void;
+  setExplanationQueueOpen: (open: boolean) => void;
 }
 
 export type BoardStore = DetectiveBoardState & DetectiveBoardActions;
