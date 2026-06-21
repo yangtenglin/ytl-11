@@ -633,7 +633,16 @@ export const useBoardStore = create<BoardStore>((set, get) => {
       const imported = importFromJSON(json);
       set((state) => {
         const merged = { ...state, ...imported };
-        return { ...merged, ...checkRules(merged) };
+        const recalculatedHypotheses = recalcAllHypothesisStatuses(
+          merged.evidences || [],
+          merged.hypotheses || []
+        );
+        const mergedWithHypotheses = { ...merged, hypotheses: recalculatedHypotheses };
+        return {
+          ...mergedWithHypotheses,
+          ...checkRules(mergedWithHypotheses),
+          ...recalculateScores(mergedWithHypotheses),
+        };
       });
     },
 

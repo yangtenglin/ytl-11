@@ -6,11 +6,17 @@ export const exportToJSON = (state: DetectiveBoardState): string => {
     events: state.events,
     locations: state.locations,
     clues: state.clues,
+    hypotheses: state.hypotheses,
+    evidences: state.evidences,
     relations: state.relations,
+    commuteTimes: state.commuteTimes,
+    defaultCommuteMinutes: state.defaultCommuteMinutes,
+    explanationQueue: state.explanationQueue,
+    explanationHistory: state.explanationHistory,
     zoom: state.zoom,
     pan: state.pan,
     exportedAt: new Date().toISOString(),
-    version: '1.0',
+    version: '1.1',
   };
   return JSON.stringify(data, null, 2);
 };
@@ -22,7 +28,13 @@ export const importFromJSON = (json: string): Partial<DetectiveBoardState> => {
     events: data.events || [],
     locations: data.locations || [],
     clues: data.clues || [],
+    hypotheses: data.hypotheses || [],
+    evidences: data.evidences || [],
     relations: data.relations || [],
+    commuteTimes: data.commuteTimes || [],
+    defaultCommuteMinutes: data.defaultCommuteMinutes ?? 30,
+    explanationQueue: data.explanationQueue || [],
+    explanationHistory: data.explanationHistory || [],
     zoom: data.zoom || 1,
     pan: data.pan || { x: 0, y: 0 },
   };
