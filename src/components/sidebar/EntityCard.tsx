@@ -1,5 +1,5 @@
-import { User, Calendar, MapPin, Search, Edit3, Trash2, Link as LinkIcon } from 'lucide-react';
-import type { AnyEntity, EntityType } from '@/types';
+import { User, Calendar, MapPin, Search, Edit3, Trash2, Link as LinkIcon, Brain } from 'lucide-react';
+import type { AnyEntity, EntityType, Hypothesis } from '@/types';
 import { useBoardStore } from '@/store/useBoardStore';
 import {
   entityTypeLabels,
@@ -7,6 +7,7 @@ import {
   importanceLabels,
   importanceColors,
   formatShortDate,
+  hypothesisStatusLabels,
 } from '@/utils/idGenerator';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ const iconMap: Record<EntityType, typeof User> = {
   event: Calendar,
   location: MapPin,
   clue: Search,
+  hypothesis: Brain,
 };
 
 const typeColors: Record<EntityType, string> = {
@@ -27,13 +29,42 @@ const typeColors: Record<EntityType, string> = {
   event: 'border-l-4 border-accent-gold',
   location: 'border-l-4 border-accent-red',
   clue: 'border-l-4 border-ink-600',
+  hypothesis: 'border-l-4 border-accent-purple',
+};
+
+const statusColors: Record<Hypothesis['status'], string> = {
+  pending: 'bg-ink-400/20 text-ink-600',
+  verified: 'bg-accent-green/20 text-accent-green',
+  rejected: 'bg-accent-red/20 text-accent-red',
 };
 
 export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
-  const { selectEntity, selectedEntityId, startRelationCreation, deleteClue, deleteCharacter, deleteEvent, deleteLocation, suspectScores } =
-    useBoardStore();
+  const {
+    selectEntity,
+    selectedEntityId,
+    startRelationCreation,
+    deleteClue,
+    deleteCharacter,
+    deleteEvent,
+    deleteLocation,
+    deleteHypothesis,
+    suspectScores,
+    evidences,
+    characters,
+  } = useBoardStore();
   const Icon = iconMap[entity.type];
   const isSelected = selectedEntityId === entity.id;
+
+  const hypothesisEvidences =
+    entity.type === 'hypothesis'
+      ? evidences.filter((e) => e.hypothesisId === entity.id)
+      : [];
+  const supportingCount = hypothesisEvidences.filter((e) => e.type === 'supporting').length;
+  const refutingCount = hypothesisEvidences.filter((e) => e.type === 'refuting').length;
+  const suspectName =
+    entity.type === 'hypothesis' && entity.suspectId
+      ? characters.find((c) => c.id === entity.suspectId)?.name
+      : null;
 
   const score = entity.type === 'character'
     ? suspectScores.find((s) => s.characterId === entity.id)
@@ -68,6 +99,9 @@ export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
         break;
       case 'clue':
         deleteClue(entity.id);
+        break;
+      case 'hypothesis':
+        deleteHypothesis(entity.id);
         break;
     }
   };
@@ -149,6 +183,51 @@ export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
             )}
           </div>
         );
+      case 'hypothesis':
+        return (
+          <div className="mt-1.5 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'text-xs px-1.5 py-0.5 rounded font-body',
+                  statusColors[entity.status]
+                )}
+              >
+                {hypothesisStatusLabels[entity.status]}
+              </span>
+              {entity.accepted && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-accent-gold/30 text-accent-gold font-body">
+                  已验收
+                </span>
+              )}
+            </div>
+            {suspectName && (
+              <div className="text-xs text-ink-500 font-body">
+                嫌疑人：<span className="text-ink-700">{suspectName}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-3 text-xs font-body">
+              <span className="text-accent-green">
+                支持 {supportingCount}/3
+              </span>
+              <span className="text-accent-red">
+                反驳 {refutingCount}
+              </span>
+            </div>
+            <div className="h-1.5 bg-cork-200 rounded-full overflow-hidden flex">
+              <div
+                className="h-full bg-accent-green transition-all duration-300"
+                style={{ width: `${Math.min(supportingCount / 3, 1) * 100}%` }}
+              />
+              {refutingCount > 0 && (
+                <div
+                  className="h-full bg-accent-red transition-all duration-300"
+                  style={{ width: `${Math.min(refutingCount / 3, 1) * 100}%` }}
+                />
+              )}
+            </div>
+          </div>
+        );
     }
   };
 
@@ -161,6 +240,8 @@ export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
       case 'location':
         return entity.name;
       case 'clue':
+        return entity.title;
+      case 'hypothesis':
         return entity.title;
     }
   };
@@ -191,7 +272,8 @@ export const EntityCard = ({ entity, onEdit }: EntityCardProps) => {
               entity.type === 'character' && 'bg-accent-green/20 text-accent-green',
               entity.type === 'event' && 'bg-accent-gold/20 text-accent-gold',
               entity.type === 'location' && 'bg-accent-red/20 text-accent-red',
-              entity.type === 'clue' && 'bg-ink-600/20 text-ink-600'
+              entity.type === 'clue' && 'bg-ink-600/20 text-ink-600',
+              entity.type === 'hypothesis' && 'bg-accent-purple/20 text-accent-purple'
             )}
           >
             <Icon size={14} />

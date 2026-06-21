@@ -1,4 +1,25 @@
-export type EntityType = 'character' | 'event' | 'location' | 'clue';
+export type EntityType = 'character' | 'event' | 'location' | 'clue' | 'hypothesis';
+
+export type EvidenceType = 'supporting' | 'refuting';
+
+export interface Evidence {
+  id: string;
+  hypothesisId: string;
+  clueId: string;
+  type: EvidenceType;
+  description: string;
+  createdAt: string;
+}
+
+export interface Hypothesis extends BaseEntity {
+  type: 'hypothesis';
+  title: string;
+  description: string;
+  suspectId?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedAt?: string;
+  accepted: boolean;
+}
 
 export interface BaseEntity {
   id: string;
@@ -68,7 +89,7 @@ export interface Clue extends BaseEntity {
   explanation?: string;
 }
 
-export type AnyEntity = Character | EventEntity | Location | Clue;
+export type AnyEntity = Character | EventEntity | Location | Clue | Hypothesis;
 
 export interface Relation {
   id: string;
@@ -99,6 +120,8 @@ export interface DetectiveBoardState {
   events: EventEntity[];
   locations: Location[];
   clues: Clue[];
+  hypotheses: Hypothesis[];
+  evidences: Evidence[];
   relations: Relation[];
   selectedEntityId: string | null;
   selectedEntityType: EntityType | null;
@@ -127,6 +150,13 @@ export interface DetectiveBoardActions {
   addClue: (data: Omit<Clue, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => void;
   updateClue: (id: string, data: Partial<Clue>) => void;
   deleteClue: (id: string) => void;
+  addHypothesis: (data: Omit<Hypothesis, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => void;
+  updateHypothesis: (id: string, data: Partial<Hypothesis>) => void;
+  deleteHypothesis: (id: string) => void;
+  addEvidence: (data: Omit<Evidence, 'id' | 'createdAt'>) => void;
+  updateEvidence: (id: string, data: Partial<Evidence>) => void;
+  deleteEvidence: (id: string) => void;
+  toggleHypothesisAccepted: (id: string) => void;
   addRelation: (data: Omit<Relation, 'id' | 'createdAt'>) => void;
   updateRelation: (id: string, data: Partial<Relation>) => void;
   deleteRelation: (id: string) => void;

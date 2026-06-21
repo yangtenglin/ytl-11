@@ -1,10 +1,11 @@
 import { useRef, useState, useEffect } from 'react';
-import { User, Calendar, MapPin, Search, Edit3, Link as LinkIcon } from 'lucide-react';
-import type { AnyEntity, EntityType } from '@/types';
+import { User, Calendar, MapPin, Search, Edit3, Link as LinkIcon, Brain, CheckCircle2 } from 'lucide-react';
+import type { AnyEntity, EntityType, Hypothesis } from '@/types';
 import { useBoardStore } from '@/store/useBoardStore';
 import {
   importanceColors,
   clueTypeLabels,
+  hypothesisStatusLabels,
 } from '@/utils/idGenerator';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,7 @@ const iconMap: Record<EntityType, typeof User> = {
   event: Calendar,
   location: MapPin,
   clue: Search,
+  hypothesis: Brain,
 };
 
 const cardStyles: Record<EntityType, string> = {
@@ -26,6 +28,7 @@ const cardStyles: Record<EntityType, string> = {
   event: 'bg-parchment-100 border-accent-gold',
   location: 'bg-parchment-100 border-accent-red',
   clue: 'bg-parchment-100 border-ink-600',
+  hypothesis: 'bg-parchment-100 border-accent-purple',
 };
 
 const iconBgStyles: Record<EntityType, string> = {
@@ -33,6 +36,13 @@ const iconBgStyles: Record<EntityType, string> = {
   event: 'bg-accent-gold/20 text-accent-gold',
   location: 'bg-accent-red/20 text-accent-red',
   clue: 'bg-ink-600/20 text-ink-600',
+  hypothesis: 'bg-accent-purple/20 text-accent-purple',
+};
+
+const hypothesisStatusStyles: Record<Hypothesis['status'], string> = {
+  pending: 'bg-ink-400',
+  verified: 'bg-accent-green',
+  rejected: 'bg-accent-red',
 };
 
 export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps) => {
@@ -44,6 +54,8 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
     relationSource,
     addRelation,
     zoom,
+    evidences,
+    toggleHypothesisAccepted,
   } = useBoardStore();
 
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -51,6 +63,13 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const isSelected = selectedEntityId === entity.id;
   const Icon = iconMap[entity.type];
+
+  const hypothesisEvidences =
+    entity.type === 'hypothesis'
+      ? evidences.filter((e) => e.hypothesisId === entity.id)
+      : [];
+  const supportingCount = hypothesisEvidences.filter((e) => e.type === 'supporting').length;
+  const refutingCount = hypothesisEvidences.filter((e) => e.type === 'refuting').length;
 
   useEffect(() => {
     if (!isDragging) return;
@@ -113,6 +132,8 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
         return entity.name;
       case 'clue':
         return entity.title;
+      case 'hypothesis':
+        return entity.title;
     }
   };
 
@@ -151,6 +172,17 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
             <Search size={12} className="text-white" />
           </span>
         );
+      case 'hypothesis':
+        return (
+          <span
+            className={cn(
+              'absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full border-2 border-white shadow-pin flex items-center justify-center',
+              hypothesisStatusStyles[entity.status]
+            )}
+          >
+            <Brain size={12} className="text-white" />
+          </span>
+        );
     }
   };
 
@@ -175,10 +207,55 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
             {!entity.isExplained && <span className="text-accent-red ml-1">·待解释</span>}
           </div>
         );
+      case 'hypothesis':
+        return (
+          <div className="space-y-1">
+            <div className="flex items-center gap-1">
+              <span
+                className={cn(
+                  'text-[10px] px-1 rounded font-body',
+                  entity.status === 'pending' && 'bg-ink-200 text-ink-600',
+                  entity.status === 'verified' && 'bg-accent-green/20 text-accent-green',
+                  entity.status === 'rejected' && 'bg-accent-red/20 text-accent-red'
+                )}
+              >
+                {hypothesisStatusLabels[entity.status]}
+              </span>
+              {entity.accepted && (
+                <span className="text-[10px] px-1 rounded bg-accent-gold/30 text-accent-gold font-body flex items-center gap-0.5">
+                  <CheckCircle2 size={8} /> 已验收
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2 text-[10px] font-body">
+              <span className="text-accent-green">支持{supportingCount}/3</span>
+              <span className="text-accent-red">反驳{refutingCount}</span>
+            </div>
+            <div className="h-1 bg-cork-200 rounded-full overflow-hidden flex">
+              <div
+                className="h-full bg-accent-green transition-all duration-300"
+                style={{ width: `${Math.min(supportingCount / 3, 1) * 100}%` }}
+              />
+              {refutingCount > 0 && (
+                <div
+                  className="h-full bg-accent-red transition-all duration-300"
+                  style={{ width: `${Math.min(refutingCount / 3, 1) * 100}%` }}
+                />
+              )}
+            </div>
+          </div>
+        );
     }
   };
 
-  const width = entity.type === 'character' ? 160 : entity.type === 'event' ? 180 : 160;
+  const width =
+    entity.type === 'character'
+      ? 160
+      : entity.type === 'event'
+      ? 180
+      : entity.type === 'hypothesis'
+      ? 210
+      : 160;
 
   return (
     <div
@@ -219,6 +296,64 @@ export const EntityNode = ({ entity, onEdit, onRelationEditor }: EntityNodeProps
           <p className="text-[10px] text-ink-600 font-body mt-1.5 line-clamp-2 leading-snug">
             {entity.description}
           </p>
+        )}
+
+        {entity.type === 'hypothesis' && entity.status === 'verified' && (
+          <div
+            className={cn(
+              'mt-2 pt-2 border-t border-cork-200 flex items-center justify-between cursor-pointer rounded transition-colors',
+              entity.accepted ? 'bg-accent-gold/10' : 'hover:bg-cork-100'
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleHypothesisAccepted(entity.id);
+            }}
+          >
+            <span
+              className={cn(
+                'text-[10px] font-display',
+                entity.accepted ? 'text-accent-gold' : 'text-ink-500'
+              )}
+            >
+              {entity.accepted ? '✓ 已通过验收' : '点击验收通过'}
+            </span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={entity.accepted}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  if (entity.status === 'verified') {
+                    toggleHypothesisAccepted(entity.id);
+                  }
+                }}
+                className="sr-only peer"
+              />
+              <div
+                className={cn(
+                  'w-8 h-4 rounded-full peer transition-colors',
+                  entity.accepted
+                    ? 'bg-accent-gold'
+                    : 'bg-cork-300 peer-hover:bg-cork-400'
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-3 h-3 bg-white rounded-full shadow transition-transform mt-0.5',
+                    entity.accepted ? 'translate-x-4 ml-0.5' : 'translate-x-0.5'
+                  )}
+                />
+              </div>
+            </label>
+          </div>
+        )}
+
+        {entity.type === 'hypothesis' && entity.status !== 'verified' && (
+          <div className="mt-2 pt-2 border-t border-cork-200 text-[10px] text-ink-400 font-body text-center">
+            {entity.status === 'pending'
+              ? '收集3条支持证据方可验收'
+              : '假设已被反驳，无法验收'}
+          </div>
         )}
       </div>
 

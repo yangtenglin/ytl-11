@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Calendar, MapPin, Search, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, Calendar, MapPin, Search, Plus, ChevronLeft, ChevronRight, Brain } from 'lucide-react';
 import { EntityCard } from './EntityCard';
 import { EntityEditorModal } from './EntityEditorModal';
 import { useBoardStore } from '@/store/useBoardStore';
@@ -12,10 +12,11 @@ const tabs: { type: EntityType; icon: typeof User; label: string }[] = [
   { type: 'event', icon: Calendar, label: '事件' },
   { type: 'location', icon: MapPin, label: '地点' },
   { type: 'clue', icon: Search, label: '线索' },
+  { type: 'hypothesis', icon: Brain, label: '推理' },
 ];
 
 export const EntityListPanel = () => {
-  const { characters, events, locations, clues, leftPanelOpen, toggleLeftPanel } = useBoardStore();
+  const { characters, events, locations, clues, hypotheses, leftPanelOpen, toggleLeftPanel } = useBoardStore();
   const [activeTab, setActiveTab] = useState<EntityType>('character');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editEntityId, setEditEntityId] = useState<string | null>(null);
@@ -26,6 +27,7 @@ export const EntityListPanel = () => {
     event: events,
     location: locations,
     clue: clues,
+    hypothesis: hypotheses,
   };
 
   const countMap = {
@@ -33,6 +35,7 @@ export const EntityListPanel = () => {
     event: events.length,
     location: locations.length,
     clue: clues.length,
+    hypothesis: hypotheses.length,
   };
 
   const handleNew = () => {

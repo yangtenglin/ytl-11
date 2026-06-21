@@ -42,6 +42,18 @@ export const entityTypeLabels: Record<string, string> = {
   event: '事件',
   location: '地点',
   clue: '线索',
+  hypothesis: '假设',
+};
+
+export const hypothesisStatusLabels: Record<string, string> = {
+  pending: '待验证',
+  verified: '已成立',
+  rejected: '已否决',
+};
+
+export const evidenceTypeLabels: Record<string, string> = {
+  supporting: '支持证据',
+  refuting: '反驳证据',
 };
 
 export const clueTypeLabels: Record<string, string> = {

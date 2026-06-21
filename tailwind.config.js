@@ -50,6 +50,8 @@ export default {
           greenLight: '#4d7352',
           gold: '#c9a227',
           goldLight: '#dab83a',
+          purple: '#5c4d7d',
+          purpleLight: '#7a6a9e',
         },
       },
       fontFamily: {

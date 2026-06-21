@@ -13,6 +13,7 @@ export const BoardCanvas = () => {
     events,
     locations,
     clues,
+    hypotheses,
     relations,
     zoom,
     pan,
@@ -121,6 +122,7 @@ export const BoardCanvas = () => {
     ...eventsFiltered.map((e) => ({ ...e, type: 'event' as const })),
     ...locations.map((l) => ({ ...l, type: 'location' as const })),
     ...clues.map((c) => ({ ...c, type: 'clue' as const })),
+    ...hypotheses.map((h) => ({ ...h, type: 'hypothesis' as const })),
   ];
 
   const getSourcePos = () => {

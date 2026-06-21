@@ -1,4 +1,4 @@
-import type { Character, EventEntity, Location, Clue, Relation } from '@/types';
+import type { Character, EventEntity, Location, Clue, Relation, Hypothesis, Evidence } from '@/types';
 import { generateId, now } from '@/utils/idGenerator';
 
 export const createMockData = (): {
@@ -6,6 +6,8 @@ export const createMockData = (): {
   events: EventEntity[];
   locations: Location[];
   clues: Clue[];
+  hypotheses: Hypothesis[];
+  evidences: Evidence[];
   relations: Relation[];
 } => {
   const t = now();
@@ -295,5 +297,76 @@ export const createMockData = (): {
     },
   ];
 
-  return { characters, events, locations, clues, relations };
+  const hypotheses: Hypothesis[] = [
+    {
+      id: generateId(),
+      type: 'hypothesis',
+      title: '周启明蓄谋绑架林董事长',
+      description: '周启明因与林雨萱在公司经营方向产生严重分歧，联合秘书苏雅琴策划了绑架事件，企图夺取公司控制权。',
+      suspectId: id4,
+      status: 'pending',
+      accepted: false,
+      position: { x: 450, y: 540 },
+      createdAt: t,
+      updatedAt: t,
+    },
+    {
+      id: generateId(),
+      type: 'hypothesis',
+      title: '赵管家监守自盗',
+      description: '赵管家服务林家三十年，对家中情况了如指掌，利用职位便利制造了失踪假象以掩盖自己的经济问题。',
+      suspectId: id3,
+      status: 'verified',
+      accepted: true,
+      verifiedAt: t,
+      position: { x: 1000, y: 120 },
+      createdAt: t,
+      updatedAt: t,
+    },
+  ];
+
+  const evidences: Evidence[] = [
+    {
+      id: generateId(),
+      hypothesisId: hypotheses[0].id,
+      clueId: cl2,
+      type: 'supporting',
+      description: '匿名信件经鉴定为周启明笔迹，表明其对林董事长心存不满。',
+      createdAt: t,
+    },
+    {
+      id: generateId(),
+      hypothesisId: hypotheses[0].id,
+      clueId: cl1,
+      type: 'supporting',
+      description: '破碎的茶杯是赵管家专门为周启明准备的，说明事发前周启明曾到访书房。',
+      createdAt: t,
+    },
+    {
+      id: generateId(),
+      hypothesisId: hypotheses[1].id,
+      clueId: cl3,
+      type: 'supporting',
+      description: '赵管家负责家中安保系统，十分钟监控盲区极有可能是其刻意所为。',
+      createdAt: t,
+    },
+    {
+      id: generateId(),
+      hypothesisId: hypotheses[1].id,
+      clueId: cl1,
+      type: 'supporting',
+      description: '青花瓷茶杯为赵管家每日亲自清洗摆放，茶杯碎片上留有其指纹。',
+      createdAt: t,
+    },
+    {
+      id: generateId(),
+      hypothesisId: hypotheses[1].id,
+      clueId: cl2,
+      type: 'supporting',
+      description: '保险柜密码只有林董事长和赵管家知道，信件放在保险柜中说明赵管家有作案嫌疑。',
+      createdAt: t,
+    },
+  ];
+
+  return { characters, events, locations, clues, hypotheses, evidences, relations };
 };

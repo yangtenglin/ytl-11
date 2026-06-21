@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, User, Calendar, MapPin, Search } from 'lucide-react';
+import { X, Save, User, Calendar, MapPin, Search, Brain, Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { IconButton } from '@/components/common/IconButton';
 import { useBoardStore } from '@/store/useBoardStore';
 import {
@@ -7,9 +7,20 @@ import {
   importanceLabels,
   getRandomColor,
   avatarColors,
+  hypothesisStatusLabels,
+  evidenceTypeLabels,
 } from '@/utils/idGenerator';
 import { cn } from '@/lib/utils';
-import type { EntityType, Character, EventEntity, Location, Clue } from '@/types';
+import type {
+  EntityType,
+  Character,
+  EventEntity,
+  Location,
+  Clue,
+  Hypothesis,
+  Evidence,
+  EvidenceType,
+} from '@/types';
 
 interface EntityEditorModalProps {
   isOpen: boolean;
@@ -29,6 +40,8 @@ export const EntityEditorModal = ({
     events,
     locations,
     clues,
+    hypotheses,
+    evidences,
     addCharacter,
     updateCharacter,
     deleteCharacter,
@@ -41,9 +54,16 @@ export const EntityEditorModal = ({
     addClue,
     updateClue,
     deleteClue,
+    addHypothesis,
+    updateHypothesis,
+    deleteHypothesis,
+    addEvidence,
+    updateEvidence,
+    deleteEvidence,
   } = useBoardStore();
 
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [localEvidences, setLocalEvidences] = useState<Evidence[]>([]);
   const isEdit = Boolean(entityId);
 
   useEffect(() => {
@@ -113,9 +133,29 @@ export const EntityEditorModal = ({
             };
         break;
       }
+      case 'hypothesis': {
+        const existing = entityId
+          ? (hypotheses.find((h) => h.id === entityId) as Hypothesis)
+          : null;
+        initial = existing
+          ? { ...existing }
+          : {
+              title: '',
+              description: '',
+              suspectId: '',
+              status: 'pending' as const,
+              accepted: false,
+            };
+        if (entityId) {
+          setLocalEvidences(evidences.filter((e) => e.hypothesisId === entityId));
+        } else {
+          setLocalEvidences([]);
+        }
+        break;
+      }
     }
     setFormData(initial);
-  }, [isOpen, entityType, entityId, characters, events, locations, clues]);
+  }, [isOpen, entityType, entityId, characters, events, locations, clues, hypotheses, evidences]);
 
   if (!isOpen) return null;
 
@@ -131,6 +171,8 @@ export const EntityEditorModal = ({
         y: 150 + Math.random() * 300,
       };
     }
+
+    let newHypothesisId = entityId;
 
     switch (entityType) {
       case 'character':
@@ -161,6 +203,52 @@ export const EntityEditorModal = ({
           addClue(data as Omit<Clue, 'id' | 'type' | 'createdAt' | 'updatedAt'>);
         }
         break;
+      case 'hypothesis': {
+        if (isEdit && entityId) {
+          updateHypothesis(entityId, data as Partial<Hypothesis>);
+        } else {
+          const hypoData = data as Omit<Hypothesis, 'id' | 'type' | 'createdAt' | 'updatedAt'>;
+          const tempId = Math.random().toString(36).substring(2, 15);
+          newHypothesisId = tempId;
+          addHypothesis(hypoData);
+        }
+        setTimeout(() => {
+          const currentHypotheses = useBoardStore.getState().hypotheses;
+          const matchedHypo = isEdit && entityId
+            ? entityId
+            : currentHypotheses.find((h) => h.title === data.title)?.id;
+
+          if (matchedHypo) {
+            const existingEvIds = evidences
+              .filter((e) => e.hypothesisId === matchedHypo)
+              .map((e) => e.id);
+            localEvidences.forEach((ev) => {
+              if (existingEvIds.includes(ev.id)) {
+                updateEvidence(ev.id, {
+                  clueId: ev.clueId,
+                  type: ev.type,
+                  description: ev.description,
+                });
+              } else {
+                addEvidence({
+                  hypothesisId: matchedHypo,
+                  clueId: ev.clueId,
+                  type: ev.type,
+                  description: ev.description,
+                });
+              }
+            });
+            evidences
+              .filter((e) => e.hypothesisId === matchedHypo)
+              .forEach((oldEv) => {
+                if (!localEvidences.find((le) => le.id === oldEv.id)) {
+                  deleteEvidence(oldEv.id);
+                }
+              });
+          }
+        }, 50);
+        break;
+      }
     }
     onClose();
   };
@@ -180,6 +268,9 @@ export const EntityEditorModal = ({
       case 'clue':
         deleteClue(entityId);
         break;
+      case 'hypothesis':
+        deleteHypothesis(entityId);
+        break;
     }
     onClose();
   };
@@ -189,12 +280,14 @@ export const EntityEditorModal = ({
     event: Calendar,
     location: MapPin,
     clue: Search,
+    hypothesis: Brain,
   };
   const titleMap: Record<EntityType, string> = {
     character: isEdit ? '编辑人物' : '新建人物',
     event: isEdit ? '编辑事件' : '新建事件',
     location: isEdit ? '编辑地点' : '新建地点',
     clue: isEdit ? '编辑线索' : '新建线索',
+    hypothesis: isEdit ? '编辑推理假设' : '新建推理假设',
   };
   const Icon = iconMap[entityType];
 
@@ -553,6 +646,244 @@ export const EntityEditorModal = ({
                   />
                 </Field>
               )}
+            </>
+          )}
+
+          {entityType === 'hypothesis' && (
+            <>
+              <Field label="假设标题" required>
+                <input
+                  type="text"
+                  value={(formData.title as string) || ''}
+                  onChange={(e) => updateField('title', e.target.value)}
+                  className={inputClass}
+                  placeholder="简明描述这一推理假设"
+                />
+              </Field>
+              <Field label="关联嫌疑人">
+                <select
+                  value={(formData.suspectId as string) || ''}
+                  onChange={(e) => updateField('suspectId', e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">-- 未指定 --</option>
+                  {characters.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="假设描述">
+                <textarea
+                  value={(formData.description as string) || ''}
+                  onChange={(e) => updateField('description', e.target.value)}
+                  className={cn(inputClass, 'min-h-[100px] resize-y')}
+                  placeholder="详细描述推理过程和假设内容..."
+                />
+              </Field>
+
+              <div className="border-t border-cork-300 pt-4 mt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-display text-sm text-ink-700">证据管理</h3>
+                  <button
+                    onClick={() => {
+                      if (clues.length === 0) {
+                        alert('请先创建线索');
+                        return;
+                      }
+                      const newEv: Evidence = {
+                        id: `temp-${Date.now()}-${Math.random()}`,
+                        hypothesisId: entityId || '',
+                        clueId: clues[0].id,
+                        type: 'supporting',
+                        description: '',
+                        createdAt: new Date().toISOString(),
+                      };
+                      setLocalEvidences((prev) => [...prev, newEv]);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent-purple/20 text-accent-purple font-body text-xs hover:bg-accent-purple/30 transition-colors"
+                  >
+                    <Plus size={14} />
+                    添加证据
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {localEvidences.length === 0 ? (
+                    <div className="text-center py-6 text-ink-400 text-sm font-body bg-cork-100/50 rounded-md border border-dashed border-cork-300">
+                      暂无证据，点击上方按钮添加支持或反驳证据
+                      <div className="mt-1 text-xs">
+                        提示：收集 <span className="text-accent-green font-bold">3 条支持证据</span> 可使假设成立
+                      </div>
+                    </div>
+                  ) : (
+                    localEvidences.map((ev, idx) => {
+                      const clue = clues.find((c) => c.id === ev.clueId);
+                      const supportCount = localEvidences.filter(
+                        (e, i) => e.type === 'supporting' && i < idx
+                      ).length;
+                      return (
+                        <div
+                          key={ev.id}
+                          className={cn(
+                            'border rounded-md p-3 bg-white/60 space-y-2',
+                            ev.type === 'supporting'
+                              ? 'border-accent-green/40'
+                              : 'border-accent-red/40'
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={ev.type}
+                                onChange={(e) => {
+                                  const newType = e.target.value as EvidenceType;
+                                  setLocalEvidences((prev) =>
+                                    prev.map((item) =>
+                                      item.id === ev.id ? { ...item, type: newType } : item
+                                    )
+                                  );
+                                }}
+                                className={cn(
+                                  'px-2 py-1 rounded text-xs font-body border',
+                                  ev.type === 'supporting'
+                                    ? 'bg-accent-green/10 border-accent-green/30 text-accent-green'
+                                    : 'bg-accent-red/10 border-accent-red/30 text-accent-red'
+                                )}
+                              >
+                                <option value="supporting">
+                                  <CheckCircle2 size={12} /> 支持证据
+                                </option>
+                                <option value="refuting">
+                                  <XCircle size={12} /> 反驳证据
+                                </option>
+                              </select>
+                              {ev.type === 'supporting' && (
+                                <span className="text-[10px] text-ink-500 font-body">
+                                  第 {supportCount + 1} 条 / 需 3 条
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => {
+                                setLocalEvidences((prev) =>
+                                  prev.filter((item) => item.id !== ev.id)
+                                );
+                              }}
+                              className="p-1 rounded hover:bg-cork-200 text-ink-400 hover:text-accent-red transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-display text-ink-600 mb-1">
+                              关联线索
+                            </label>
+                            <select
+                              value={ev.clueId}
+                              onChange={(e) => {
+                                setLocalEvidences((prev) =>
+                                  prev.map((item) =>
+                                    item.id === ev.id
+                                      ? { ...item, clueId: e.target.value }
+                                      : item
+                                  )
+                                );
+                              }}
+                              className={cn(inputClass, 'text-sm py-1.5')}
+                            >
+                              {clues.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.title}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {clue && (
+                            <div className="text-[11px] text-ink-500 font-body bg-cork-100 rounded p-2">
+                              <span className="font-display text-ink-600">线索内容：</span>
+                              {clue.description}
+                            </div>
+                          )}
+                          <div>
+                            <label className="block text-[11px] font-display text-ink-600 mb-1">
+                              证据说明
+                            </label>
+                            <textarea
+                              value={ev.description}
+                              onChange={(e) => {
+                                setLocalEvidences((prev) =>
+                                  prev.map((item) =>
+                                    item.id === ev.id
+                                      ? { ...item, description: e.target.value }
+                                      : item
+                                  )
+                                );
+                              }}
+                              className={cn(inputClass, 'text-sm py-1.5 min-h-[50px] resize-y')}
+                              placeholder="说明这条线索如何支持或反驳该假设..."
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {localEvidences.length > 0 && (
+                  <div className="mt-4 p-3 rounded-md bg-parchment-100 border border-cork-300">
+                    <div className="flex items-center justify-between text-xs font-body mb-2">
+                      <span className="text-ink-600">证据统计</span>
+                      <span
+                        className={cn(
+                          'font-display font-bold',
+                          localEvidences.filter((e) => e.type === 'supporting').length >= 3
+                            ? 'text-accent-green'
+                            : 'text-ink-500'
+                        )}
+                      >
+                        {localEvidences.filter((e) => e.type === 'supporting').length >= 3
+                          ? '✓ 假设可成立'
+                          : '证据不足'}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-cork-200 rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-accent-green transition-all duration-300"
+                        style={{
+                          width: `${Math.min(
+                            (localEvidences.filter((e) => e.type === 'supporting').length / 3) *
+                              100,
+                            100
+                          )}%`,
+                        }}
+                      />
+                      {localEvidences.filter((e) => e.type === 'refuting').length > 0 && (
+                        <div
+                          className="h-full bg-accent-red transition-all duration-300"
+                          style={{
+                            width: `${Math.min(
+                              (localEvidences.filter((e) => e.type === 'refuting').length /
+                                3) *
+                                100,
+                              100
+                            )}%`,
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex justify-between mt-1.5 text-[10px] font-body text-ink-500">
+                      <span className="text-accent-green">
+                        支持 {localEvidences.filter((e) => e.type === 'supporting').length}/3
+                      </span>
+                      <span className="text-accent-red">
+                        反驳 {localEvidences.filter((e) => e.type === 'refuting').length}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

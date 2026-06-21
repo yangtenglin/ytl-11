@@ -7,6 +7,8 @@ import type {
   Clue,
   Relation,
   EntityType,
+  Hypothesis,
+  Evidence,
 } from '@/types';
 import { generateId, now, clamp } from '@/utils/idGenerator';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
@@ -43,11 +45,37 @@ export const useBoardStore = create<BoardStore>((set, get) => {
     return { suspectScores };
   };
 
+  const checkHypothesisStatus = (
+    hypothesisId: string,
+    evidences: Evidence[]
+  ): { status: Hypothesis['status']; verifiedAt?: string } => {
+    const hypoEvidences = evidences.filter((e) => e.hypothesisId === hypothesisId);
+    const supportingCount = hypoEvidences.filter((e) => e.type === 'supporting').length;
+    const refutingCount = hypoEvidences.filter((e) => e.type === 'refuting').length;
+
+    if (refutingCount > 0 && refutingCount >= supportingCount) {
+      return { status: 'rejected' };
+    }
+    if (supportingCount >= 3) {
+      return { status: 'verified', verifiedAt: now() };
+    }
+    return { status: 'pending' };
+  };
+
+  const recalcAllHypothesisStatuses = (evidences: Evidence[], hypotheses: Hypothesis[]) => {
+    return hypotheses.map((h) => {
+      const result = checkHypothesisStatus(h.id, evidences);
+      return { ...h, status: result.status, verifiedAt: result.verifiedAt ?? h.verifiedAt };
+    });
+  };
+
   return {
     characters: mockData.characters,
     events: mockData.events,
     locations: mockData.locations,
     clues: mockData.clues,
+    hypotheses: mockData.hypotheses,
+    evidences: mockData.evidences,
     relations: mockData.relations,
     selectedEntityId: null,
     selectedEntityType: null,
@@ -113,11 +141,15 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         const newClues = state.clues.map((c) =>
           c.characterId === id ? { ...c, characterId: undefined } : c
         );
+        const newHypotheses = state.hypotheses.map((h) =>
+          h.suspectId === id ? { ...h, suspectId: undefined } : h
+        );
         const partial = {
           characters: newChars,
           relations: newRelations,
           events: newEvents,
           clues: newClues,
+          hypotheses: newHypotheses,
           selectedEntityId: state.selectedEntityId === id ? null : state.selectedEntityId,
         };
         return {
@@ -270,9 +302,13 @@ export const useBoardStore = create<BoardStore>((set, get) => {
             !(r.sourceId === id && r.sourceType === 'clue') &&
             !(r.targetId === id && r.targetType === 'clue')
         );
+        const newEvidences = state.evidences.filter((e) => e.clueId !== id);
+        const newHypotheses = recalcAllHypothesisStatuses(newEvidences, state.hypotheses);
         const partial = {
           clues: newClues,
           relations: newRelations,
+          evidences: newEvidences,
+          hypotheses: newHypotheses,
           selectedEntityId: state.selectedEntityId === id ? null : state.selectedEntityId,
         };
         return {
@@ -281,6 +317,83 @@ export const useBoardStore = create<BoardStore>((set, get) => {
           ...recalculateScores(partial),
         };
       });
+    },
+
+    addHypothesis: (data) => {
+      const hypo: Hypothesis = {
+        ...data,
+        id: generateId(),
+        type: 'hypothesis',
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      set((state) => ({ hypotheses: [...state.hypotheses, hypo] }));
+    },
+
+    updateHypothesis: (id, data) => {
+      set((state) => {
+        const updated = state.hypotheses.map((h) =>
+          h.id === id ? { ...h, ...data, updatedAt: now() } : h
+        );
+        return { hypotheses: updated };
+      });
+    },
+
+    deleteHypothesis: (id) => {
+      set((state) => {
+        const newHypotheses = state.hypotheses.filter((h) => h.id !== id);
+        const newEvidences = state.evidences.filter((e) => e.hypothesisId !== id);
+        const newRelations = state.relations.filter(
+          (r) =>
+            !(r.sourceId === id && r.sourceType === 'hypothesis') &&
+            !(r.targetId === id && r.targetType === 'hypothesis')
+        );
+        return {
+          hypotheses: newHypotheses,
+          evidences: newEvidences,
+          relations: newRelations,
+          selectedEntityId: state.selectedEntityId === id ? null : state.selectedEntityId,
+        };
+      });
+    },
+
+    addEvidence: (data) => {
+      const ev: Evidence = {
+        ...data,
+        id: generateId(),
+        createdAt: now(),
+      };
+      set((state) => {
+        const newEvidences = [...state.evidences, ev];
+        const newHypotheses = recalcAllHypothesisStatuses(newEvidences, state.hypotheses);
+        return { evidences: newEvidences, hypotheses: newHypotheses };
+      });
+    },
+
+    updateEvidence: (id, data) => {
+      set((state) => {
+        const updated = state.evidences.map((e) => (e.id === id ? { ...e, ...data } : e));
+        const newHypotheses = recalcAllHypothesisStatuses(updated, state.hypotheses);
+        return { evidences: updated, hypotheses: newHypotheses };
+      });
+    },
+
+    deleteEvidence: (id) => {
+      set((state) => {
+        const newEvidences = state.evidences.filter((e) => e.id !== id);
+        const newHypotheses = recalcAllHypothesisStatuses(newEvidences, state.hypotheses);
+        return { evidences: newEvidences, hypotheses: newHypotheses };
+      });
+    },
+
+    toggleHypothesisAccepted: (id) => {
+      set((state) => ({
+        hypotheses: state.hypotheses.map((h) =>
+          h.id === id && h.status === 'verified'
+            ? { ...h, accepted: !h.accepted, updatedAt: now() }
+            : h
+        ),
+      }));
     },
 
     addRelation: (data) => {
@@ -370,6 +483,12 @@ export const useBoardStore = create<BoardStore>((set, get) => {
                 c.id === id ? { ...c, position } : c
               ),
             };
+          case 'hypothesis':
+            return {
+              hypotheses: state.hypotheses.map((h) =>
+                h.id === id ? { ...h, position } : h
+              ),
+            };
           default:
             return {};
         }
@@ -442,6 +561,8 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         events: [],
         locations: [],
         clues: [],
+        hypotheses: [],
+        evidences: [],
         relations: [],
         selectedEntityId: null,
         selectedEntityType: null,
@@ -462,5 +583,7 @@ export const getEntityById = (id: string, type: EntityType) => {
       return state.locations.find((e) => e.id === id);
     case 'clue':
       return state.clues.find((e) => e.id === id);
+    case 'hypothesis':
+      return state.hypotheses.find((e) => e.id === id);
   }
 };
