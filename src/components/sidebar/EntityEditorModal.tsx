@@ -207,6 +207,12 @@ export const EntityEditorModal = ({
         }
         break;
       case 'hypothesis': {
+        const uniqueClueIds = new Set(localEvidences.map((e) => e.clueId));
+        if (uniqueClueIds.size !== localEvidences.length) {
+          alert('存在重复的线索绑定，请检查后再保存');
+          return;
+        }
+
         if (isEdit && entityId) {
           updateHypothesis(entityId, data as Partial<Hypothesis>);
         } else {
@@ -705,10 +711,16 @@ export const EntityEditorModal = ({
                         alert('请先创建线索');
                         return;
                       }
+                      const usedClueIds = localEvidences.map((e) => e.clueId);
+                      const availableClues = clues.filter((c) => !usedClueIds.includes(c.id));
+                      if (availableClues.length === 0) {
+                        alert('所有线索都已绑定，请先删除现有证据或创建新线索');
+                        return;
+                      }
                       const newEv: Evidence = {
                         id: `temp-${Date.now()}-${Math.random()}`,
                         hypothesisId: entityId || '',
-                        clueId: clues[0].id,
+                        clueId: availableClues[0].id,
                         type: 'supporting',
                         description: '',
                         createdAt: new Date().toISOString(),
@@ -806,11 +818,17 @@ export const EntityEditorModal = ({
                               }}
                               className={cn(inputClass, 'text-sm py-1.5')}
                             >
-                              {clues.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.title}
-                                </option>
-                              ))}
+                              {clues.map((c) => {
+                                const isUsed = localEvidences.some(
+                                  (e) => e.clueId === c.id && e.id !== ev.id
+                                );
+                                return (
+                                  <option key={c.id} value={c.id} disabled={isUsed}>
+                                    {c.title}
+                                    {isUsed ? ' (已绑定)' : ''}
+                                  </option>
+                                );
+                              })}
                             </select>
                           </div>
                           {clue && (
@@ -845,25 +863,68 @@ export const EntityEditorModal = ({
                 </div>
 
                 {localEvidences.length > 0 && (
-                  <div className="mt-4 p-3 rounded-md bg-parchment-100 border border-cork-300">
+                  <div
+                    className={cn(
+                      'mt-4 p-3 rounded-md border transition-all duration-300',
+                      (() => {
+                        const supportingCount = localEvidences.filter(
+                          (e) => e.type === 'supporting'
+                        ).length;
+                        const refutingCount = localEvidences.filter(
+                          (e) => e.type === 'refuting'
+                        ).length;
+                        if (refutingCount > 0 && refutingCount >= supportingCount) {
+                          return 'bg-accent-red/10 border-accent-red/40';
+                        }
+                        if (supportingCount >= 3) {
+                          return 'bg-accent-green/10 border-accent-green/40';
+                        }
+                        return 'bg-parchment-100 border-cork-300';
+                      })()
+                    )}
+                  >
                     <div className="flex items-center justify-between text-xs font-body mb-2">
-                      <span className="text-ink-600">证据统计</span>
+                      <span className="text-ink-600">验证状态</span>
                       <span
                         className={cn(
-                          'font-display font-bold',
-                          localEvidences.filter((e) => e.type === 'supporting').length >= 3
-                            ? 'text-accent-green'
-                            : 'text-ink-500'
+                          'font-display font-bold px-2 py-0.5 rounded',
+                          (() => {
+                            const supportingCount = localEvidences.filter(
+                              (e) => e.type === 'supporting'
+                            ).length;
+                            const refutingCount = localEvidences.filter(
+                              (e) => e.type === 'refuting'
+                            ).length;
+                            if (refutingCount > 0 && refutingCount >= supportingCount) {
+                              return 'bg-accent-red/20 text-accent-red';
+                            }
+                            if (supportingCount >= 3) {
+                              return 'bg-accent-green/20 text-accent-green';
+                            }
+                            return 'bg-ink-200 text-ink-500';
+                          })()
                         )}
                       >
-                        {localEvidences.filter((e) => e.type === 'supporting').length >= 3
-                          ? '✓ 假设可成立'
-                          : '证据不足'}
+                        {(() => {
+                          const supportingCount = localEvidences.filter(
+                            (e) => e.type === 'supporting'
+                          ).length;
+                          const refutingCount = localEvidences.filter(
+                            (e) => e.type === 'refuting'
+                          ).length;
+                          if (refutingCount > 0 && refutingCount >= supportingCount) {
+                            return '✗ 被推翻';
+                          }
+                          if (supportingCount >= 3) {
+                            return '✓ 已验证';
+                          }
+                          return '待验证';
+                        })()}
                       </span>
                     </div>
                     <div className="h-2 bg-cork-200 rounded-full overflow-hidden flex">
                       <div
-                        className="h-full bg-accent-green transition-all duration-300"
+                        className="h-full bg-accent-green transition-all duration-500"
                         style={{
                           width: `${Math.min(
                             (localEvidences.filter((e) => e.type === 'supporting').length / 3) *
@@ -874,7 +935,7 @@ export const EntityEditorModal = ({
                       />
                       {localEvidences.filter((e) => e.type === 'refuting').length > 0 && (
                         <div
-                          className="h-full bg-accent-red transition-all duration-300"
+                          className="h-full bg-accent-red transition-all duration-500"
                           style={{
                             width: `${Math.min(
                               (localEvidences.filter((e) => e.type === 'refuting').length /
@@ -893,6 +954,9 @@ export const EntityEditorModal = ({
                       <span className="text-accent-red">
                         反驳 {localEvidences.filter((e) => e.type === 'refuting').length}
                       </span>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-cork-200 text-[10px] font-body text-ink-400">
+                      收集 3 条支持证据可通过验证，反驳证据占优则假设被推翻
                     </div>
                   </div>
                 )}
