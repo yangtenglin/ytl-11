@@ -693,8 +693,9 @@ export const useBoardStore = create<BoardStore>((set, get) => {
       });
     },
 
-    batchExplainClues: (clueIds, explanation) => {
+    batchExplainClues: (clueIds, explanation, batchTimestamp) => {
       set((state) => {
+        const ts = batchTimestamp ?? now();
         const historyItems = clueIds.map((clueId) => {
           const clue = state.clues.find((c) => c.id === clueId);
           return {
@@ -702,7 +703,7 @@ export const useBoardStore = create<BoardStore>((set, get) => {
             wasExplained: !!(clue?.isExplained),
             oldExplanation: clue?.explanation,
             oldIsExplained: !!(clue?.isExplained),
-            timestamp: now(),
+            timestamp: ts,
           };
         });
 

@@ -207,7 +207,7 @@ export interface DetectiveBoardActions {
   toggleExplanationQueue: (clueId: string) => void;
   clearExplanationQueue: () => void;
   addAllUnexplainedToQueue: () => void;
-  batchExplainClues: (clueIds: string[], explanation: string) => void;
+  batchExplainClues: (clueIds: string[], explanation: string, batchTimestamp?: string) => void;
   undoExplanation: () => ExplanationHistoryItem | null;
   toggleExplanationQueueOpen: () => void;
   setExplanationQueueOpen: (open: boolean) => void;

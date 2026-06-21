@@ -89,7 +89,7 @@ export const ExplanationQueuePanel = () => {
 
       const groupTs = new Date().toISOString();
       ids.forEach((id) => {
-        batchExplainClues([id], individualExplanations[id].trim());
+        batchExplainClues([id], individualExplanations[id].trim(), groupTs);
       });
       showToast(`已逐项解释 ${ids.length} 条线索 ✓`);
       setIndividualExplanations({});
