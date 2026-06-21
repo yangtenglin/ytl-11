@@ -1,4 +1,4 @@
-import type { Character, EventEntity, Location, Clue, Relation, Hypothesis, Evidence } from '@/types';
+import type { Character, EventEntity, Location, Clue, Relation, Hypothesis, Evidence, CommuteTime } from '@/types';
 import { generateId, now } from '@/utils/idGenerator';
 
 export const createMockData = (): {
@@ -9,6 +9,7 @@ export const createMockData = (): {
   hypotheses: Hypothesis[];
   evidences: Evidence[];
   relations: Relation[];
+  commuteTimes: CommuteTime[];
 } => {
   const t = now();
   const id1 = generateId();
@@ -150,6 +151,7 @@ export const createMockData = (): {
       title: '林董事长失踪',
       description: '林董事长在家中书房内突然失踪，房门反锁，室内无打斗痕迹。',
       timestamp: '2024-03-15T22:00:00Z',
+      endTimestamp: '2024-03-15T23:00:00Z',
       locationId: loc1,
       importance: 'critical',
       participantIds: [id1, id2, id3],
@@ -163,6 +165,7 @@ export const createMockData = (): {
       title: '董事会紧急会议',
       description: '因董事长失踪后紧急召开的董事会，讨论临时负责人人选产生激烈争论。',
       timestamp: '2024-03-16T10:00:00Z',
+      endTimestamp: '2024-03-16T12:00:00Z',
       locationId: loc2,
       importance: 'high',
       participantIds: [id2, id4],
@@ -176,6 +179,7 @@ export const createMockData = (): {
       title: '慈善晚宴',
       description: '蓝月酒店举办的年度慈善晚宴，失踪前林董事长出席。',
       timestamp: '2024-03-15T19:00:00Z',
+      endTimestamp: '2024-03-15T21:30:00Z',
       locationId: loc3,
       importance: 'medium',
       participantIds: [id2, id3, id4],
@@ -325,6 +329,30 @@ export const createMockData = (): {
     },
   ];
 
+  const commuteTimes: CommuteTime[] = [
+    {
+      id: generateId(),
+      locationAId: loc1,
+      locationBId: loc2,
+      minutes: 45,
+      createdAt: t,
+    },
+    {
+      id: generateId(),
+      locationAId: loc1,
+      locationBId: loc3,
+      minutes: 60,
+      createdAt: t,
+    },
+    {
+      id: generateId(),
+      locationAId: loc2,
+      locationBId: loc3,
+      minutes: 15,
+      createdAt: t,
+    },
+  ];
+
   const evidences: Evidence[] = [
     {
       id: generateId(),
@@ -368,5 +396,5 @@ export const createMockData = (): {
     },
   ];
 
-  return { characters, events, locations, clues, hypotheses, evidences, relations };
+  return { characters, events, locations, clues, hypotheses, evidences, relations, commuteTimes };
 };

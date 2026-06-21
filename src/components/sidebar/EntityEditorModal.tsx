@@ -100,6 +100,9 @@ export const EntityEditorModal = ({
               title: '',
               description: '',
               timestamp: new Date().toISOString().slice(0, 16),
+              endTimestamp: new Date(Date.now() + 60 * 60 * 1000)
+                .toISOString()
+                .slice(0, 16),
               locationId: '',
               importance: 'medium' as const,
               participantIds: [] as string[],
@@ -440,7 +443,7 @@ export const EntityEditorModal = ({
                 />
               </Field>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="时间">
+                <Field label="开始时间">
                   <input
                     type="datetime-local"
                     value={(formData.timestamp as string) || ''}
@@ -448,6 +451,16 @@ export const EntityEditorModal = ({
                     className={inputClass}
                   />
                 </Field>
+                <Field label="结束时间">
+                  <input
+                    type="datetime-local"
+                    value={(formData.endTimestamp as string) || ''}
+                    onChange={(e) => updateField('endTimestamp', e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <Field label="重要程度">
                   <select
                     value={(formData.importance as string) || 'medium'}
@@ -461,21 +474,21 @@ export const EntityEditorModal = ({
                     ))}
                   </select>
                 </Field>
+                <Field label="发生地点">
+                  <select
+                    value={(formData.locationId as string) || ''}
+                    onChange={(e) => updateField('locationId', e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">-- 未指定 --</option>
+                    {locations.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
               </div>
-              <Field label="发生地点">
-                <select
-                  value={(formData.locationId as string) || ''}
-                  onChange={(e) => updateField('locationId', e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">-- 未指定 --</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
               <Field label="参与人物">
                 <div className="flex flex-wrap gap-2 border border-cork-300 rounded-md p-2 bg-white/50 min-h-[44px]">
                   {characters.length === 0 ? (

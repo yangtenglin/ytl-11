@@ -65,9 +65,18 @@ export interface EventEntity extends BaseEntity {
   title: string;
   description: string;
   timestamp: string;
+  endTimestamp: string;
   locationId?: string;
   importance: 'low' | 'medium' | 'high' | 'critical';
   participantIds: string[];
+}
+
+export interface CommuteTime {
+  id: string;
+  locationAId: string;
+  locationBId: string;
+  minutes: number;
+  createdAt: string;
 }
 
 export interface Location extends BaseEntity {
@@ -123,6 +132,8 @@ export interface DetectiveBoardState {
   hypotheses: Hypothesis[];
   evidences: Evidence[];
   relations: Relation[];
+  commuteTimes: CommuteTime[];
+  defaultCommuteMinutes: number;
   selectedEntityId: string | null;
   selectedEntityType: EntityType | null;
   timeRangeFilter: { start: string | null; end: string | null };
@@ -134,7 +145,7 @@ export interface DetectiveBoardState {
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
   suspectScores: SuspectScore[];
-  rightPanelTab: 'rules' | 'scores';
+  rightPanelTab: 'rules' | 'scores' | 'commute';
 }
 
 export interface DetectiveBoardActions {
@@ -147,6 +158,11 @@ export interface DetectiveBoardActions {
   addLocation: (data: Omit<Location, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => void;
   updateLocation: (id: string, data: Partial<Location>) => void;
   deleteLocation: (id: string) => void;
+  addCommuteTime: (data: Omit<CommuteTime, 'id' | 'createdAt'>) => void;
+  updateCommuteTime: (id: string, data: Partial<CommuteTime>) => void;
+  deleteCommuteTime: (id: string) => void;
+  setDefaultCommuteMinutes: (minutes: number) => void;
+  getCommuteMinutes: (locationAId: string, locationBId: string) => number;
   addClue: (data: Omit<Clue, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => void;
   updateClue: (id: string, data: Partial<Clue>) => void;
   deleteClue: (id: string) => void;
@@ -171,7 +187,7 @@ export interface DetectiveBoardActions {
   calculateSuspectScores: () => void;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
-  setRightPanelTab: (tab: 'rules' | 'scores') => void;
+  setRightPanelTab: (tab: 'rules' | 'scores' | 'commute') => void;
   exportData: () => string;
   importData: (json: string) => void;
   clearAll: () => void;

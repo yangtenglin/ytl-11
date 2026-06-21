@@ -12,6 +12,7 @@ import {
   RefreshCw,
   X,
   Trophy,
+  MapPin,
 } from 'lucide-react';
 import { useBoardStore } from '@/store/useBoardStore';
 import { cn } from '@/lib/utils';
@@ -122,6 +123,13 @@ export const RulesPanel = () => {
             title="切换到嫌疑排行"
           >
             <Trophy size={14} />
+          </button>
+          <button
+            onClick={() => setRightPanelTab('commute')}
+            className="p-1 rounded hover:bg-cork-200 text-ink-500 hover:text-accent-green transition-colors"
+            title="切换到通勤时间设置"
+          >
+            <MapPin size={14} />
           </button>
           <button
             onClick={runRulesCheck}

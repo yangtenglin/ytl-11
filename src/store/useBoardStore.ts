@@ -9,6 +9,7 @@ import type {
   EntityType,
   Hypothesis,
   Evidence,
+  CommuteTime,
 } from '@/types';
 import { generateId, now, clamp } from '@/utils/idGenerator';
 import { exportToJSON, importFromJSON } from '@/utils/exportImport';
@@ -24,12 +25,17 @@ export const useBoardStore = create<BoardStore>((set, get) => {
   const checkRules = (state: Partial<BoardStore>) => {
     const current = get();
     const merged = { ...current, ...state };
-    const violations = runAllChecks({
-      characters: merged.characters,
-      events: merged.events,
-      clues: merged.clues,
-      relations: merged.relations,
-    });
+    const violations = runAllChecks(
+      {
+        characters: merged.characters,
+        events: merged.events,
+        clues: merged.clues,
+        relations: merged.relations,
+        locations: merged.locations,
+        commuteTimes: merged.commuteTimes,
+        defaultCommuteMinutes: merged.defaultCommuteMinutes,
+      }
+    );
     return { violations };
   };
 
@@ -77,6 +83,8 @@ export const useBoardStore = create<BoardStore>((set, get) => {
     hypotheses: mockData.hypotheses,
     evidences: mockData.evidences,
     relations: mockData.relations,
+    commuteTimes: mockData.commuteTimes,
+    defaultCommuteMinutes: 30,
     selectedEntityId: null,
     selectedEntityType: null,
     timeRangeFilter: { start: null, end: null },
@@ -251,14 +259,82 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         const newClues = state.clues.map((c) =>
           c.locationId === id ? { ...c, locationId: undefined } : c
         );
-        return {
+        const newCommuteTimes = state.commuteTimes.filter(
+          (ct) => ct.locationAId !== id && ct.locationBId !== id
+        );
+        const partial = {
           locations: newLocations,
           relations: newRelations,
           events: newEvents,
           clues: newClues,
+          commuteTimes: newCommuteTimes,
           selectedEntityId: state.selectedEntityId === id ? null : state.selectedEntityId,
         };
+        return {
+          ...partial,
+          ...checkRules(partial),
+        };
       });
+    },
+
+    addCommuteTime: (data) => {
+      const ct: CommuteTime = {
+        ...data,
+        id: generateId(),
+        createdAt: now(),
+      };
+      set((state) => {
+        const partial = { commuteTimes: [...state.commuteTimes, ct] };
+        return {
+          ...partial,
+          ...checkRules(partial),
+        };
+      });
+    },
+
+    updateCommuteTime: (id, data) => {
+      set((state) => {
+        const updated = state.commuteTimes.map((ct) =>
+          ct.id === id ? { ...ct, ...data } : ct
+        );
+        const partial = { commuteTimes: updated };
+        return {
+          ...partial,
+          ...checkRules(partial),
+        };
+      });
+    },
+
+    deleteCommuteTime: (id) => {
+      set((state) => {
+        const newCommuteTimes = state.commuteTimes.filter((ct) => ct.id !== id);
+        const partial = { commuteTimes: newCommuteTimes };
+        return {
+          ...partial,
+          ...checkRules(partial),
+        };
+      });
+    },
+
+    setDefaultCommuteMinutes: (minutes) => {
+      set((state) => {
+        const partial = { defaultCommuteMinutes: minutes };
+        return {
+          ...partial,
+          ...checkRules(partial),
+        };
+      });
+    },
+
+    getCommuteMinutes: (locationAId, locationBId) => {
+      const state = get();
+      if (locationAId === locationBId) return 0;
+      const found = state.commuteTimes.find(
+        (ct) =>
+          (ct.locationAId === locationAId && ct.locationBId === locationBId) ||
+          (ct.locationAId === locationBId && ct.locationBId === locationAId)
+      );
+      return found ? found.minutes : state.defaultCommuteMinutes;
     },
 
     addClue: (data) => {
@@ -516,6 +592,9 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         events: state.events,
         clues: state.clues,
         relations: state.relations,
+        locations: state.locations,
+        commuteTimes: state.commuteTimes,
+        defaultCommuteMinutes: state.defaultCommuteMinutes,
       });
       set({ violations });
     },
@@ -564,6 +643,8 @@ export const useBoardStore = create<BoardStore>((set, get) => {
         hypotheses: [],
         evidences: [],
         relations: [],
+        commuteTimes: [],
+        defaultCommuteMinutes: 30,
         selectedEntityId: null,
         selectedEntityType: null,
         violations: [],

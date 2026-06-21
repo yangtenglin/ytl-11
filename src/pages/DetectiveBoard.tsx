@@ -3,6 +3,7 @@ import { EntityListPanel } from '@/components/sidebar/EntityListPanel';
 import { BoardCanvas } from '@/components/board/BoardCanvas';
 import { RulesPanel } from '@/components/rules/RulesPanel';
 import { ScoresPanel } from '@/components/scores/ScoresPanel';
+import { CommutePanel } from '@/components/commute/CommutePanel';
 import { TimelineBar } from '@/components/timeline/TimelineBar';
 import { useBoardStore } from '@/store/useBoardStore';
 
@@ -18,7 +19,9 @@ const DetectiveBoard = () => {
           <BoardCanvas />
           <TimelineBar />
         </div>
-        {rightPanelTab === 'rules' ? <RulesPanel /> : <ScoresPanel />}
+        {rightPanelTab === 'rules' && <RulesPanel />}
+        {rightPanelTab === 'scores' && <ScoresPanel />}
+        {rightPanelTab === 'commute' && <CommutePanel />}
       </div>
     </div>
   );

@@ -5,13 +5,40 @@ import type {
   Relation,
   RuleViolation,
   DetectiveBoardState,
+  Location,
+  CommuteTime,
 } from '@/types';
 import { generateId } from '@/utils/idGenerator';
+
+function getCommuteMinutes(
+  locationAId: string | undefined,
+  locationBId: string | undefined,
+  commuteTimes: CommuteTime[],
+  defaultMinutes: number
+): number {
+  if (!locationAId || !locationBId) return defaultMinutes;
+  if (locationAId === locationBId) return 0;
+  const found = commuteTimes.find(
+    (ct) =>
+      (ct.locationAId === locationAId && ct.locationBId === locationBId) ||
+      (ct.locationAId === locationBId && ct.locationBId === locationAId)
+  );
+  return found ? found.minutes : defaultMinutes;
+}
+
+function getLocationName(locations: Location[], locationId?: string): string {
+  if (!locationId) return '未知地点';
+  const loc = locations.find((l) => l.id === locationId);
+  return loc ? loc.name : '未知地点';
+}
 
 export function useRulesEngine() {
   const checkTimeConflicts = (
     characters: Character[],
-    events: EventEntity[]
+    events: EventEntity[],
+    locations: Location[],
+    commuteTimes: CommuteTime[],
+    defaultCommuteMinutes: number
   ): RuleViolation[] => {
     const violations: RuleViolation[] = [];
 
@@ -29,17 +56,38 @@ export function useRulesEngine() {
 
         if (!current.timestamp || !next.timestamp) continue;
 
-        const currentTime = new Date(current.timestamp).getTime();
-        const nextTime = new Date(next.timestamp).getTime();
+        const currentEndTime = new Date(
+          current.endTimestamp || current.timestamp
+        ).getTime();
+        const nextStartTime = new Date(next.timestamp).getTime();
 
-        if (nextTime - currentTime < 30 * 60 * 1000) {
+        const gapMinutes = (nextStartTime - currentEndTime) / (1000 * 60);
+
+        const commuteMinutes = getCommuteMinutes(
+          current.locationId,
+          next.locationId,
+          commuteTimes,
+          defaultCommuteMinutes
+        );
+
+        if (gapMinutes < commuteMinutes) {
+          const shortage = commuteMinutes - gapMinutes;
+          const currentLocName = getLocationName(locations, current.locationId);
+          const nextLocName = getLocationName(locations, next.locationId);
+
           violations.push({
             id: generateId(),
             type: 'time_conflict',
             severity: 'error',
-            message: `${char.name} 的时间安排冲突："${current.title}" 与 "${next.title}" 间隔不足 30 分钟`,
+            message: `${char.name} 不在场证明存疑："${current.title}" 与 "${next.title}" 时间冲突`,
             relatedEntityIds: [char.id, current.id, next.id],
-            details: `"${current.title}" 时间：${current.timestamp}\n"${next.title}" 时间：${next.timestamp}\n请确认人物是否能在两个地点/事件之间合理移动。`,
+            details:
+              `"${current.title}" 结束时间：${current.endTimestamp || current.timestamp}（${currentLocName}）\n` +
+              `"${next.title}" 开始时间：${next.timestamp}（${nextLocName}）\n` +
+              `两事件间隔：${gapMinutes < 0 ? `重叠 ${Math.abs(gapMinutes).toFixed(0)} 分钟` : `${gapMinutes.toFixed(0)} 分钟`}\n` +
+              `通勤所需：${commuteMinutes} 分钟\n` +
+              `差额：短缺 ${shortage.toFixed(0)} 分钟\n` +
+              `不在场核验结论：时间不足以完成通勤，人物可能存在时间冲突！`,
           });
         }
       }
@@ -98,10 +146,25 @@ export function useRulesEngine() {
   };
 
   const runAllChecks = (
-    state: Pick<DetectiveBoardState, 'characters' | 'events' | 'clues' | 'relations'>
+    state: Pick<
+      DetectiveBoardState,
+      | 'characters'
+      | 'events'
+      | 'clues'
+      | 'relations'
+      | 'locations'
+      | 'commuteTimes'
+      | 'defaultCommuteMinutes'
+    >
   ): RuleViolation[] => {
     return [
-      ...checkTimeConflicts(state.characters, state.events),
+      ...checkTimeConflicts(
+        state.characters,
+        state.events,
+        state.locations,
+        state.commuteTimes,
+        state.defaultCommuteMinutes
+      ),
       ...checkUnexplainedClues(state.clues),
       ...checkIsolatedCharacters(state.characters, state.events, state.relations),
     ];

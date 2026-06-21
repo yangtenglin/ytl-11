@@ -1,12 +1,26 @@
 import { useState, useMemo } from 'react';
-import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { useBoardStore } from '@/store/useBoardStore';
 import { importanceColors, formatShortDate } from '@/utils/idGenerator';
 import { cn } from '@/lib/utils';
 
 export const TimelineBar = () => {
-  const { events, timeRangeFilter, setTimeRangeFilter, selectEntity } = useBoardStore();
+  const { events, timeRangeFilter, setTimeRangeFilter, selectEntity, violations } = useBoardStore();
   const [isExpanded, setIsExpanded] = useState(true);
+
+  const conflictEventIds = useMemo(() => {
+    const ids = new Set<string>();
+    violations
+      .filter((v) => v.type === 'time_conflict')
+      .forEach((v) => {
+        v.relatedEntityIds.forEach((id) => {
+          if (events.some((e) => e.id === id)) {
+            ids.add(id);
+          }
+        });
+      });
+    return ids;
+  }, [violations, events]);
 
   const sortedEvents = useMemo(
     () =>
@@ -24,9 +38,13 @@ export const TimelineBar = () => {
         max: new Date(now.getFullYear(), now.getMonth() + 1, 0).getTime(),
       };
     }
-    const times = sortedEvents.map((e) => new Date(e.timestamp).getTime());
-    const padding = (Math.max(...times) - Math.min(...times)) * 0.1 || 86400000;
-    return { min: Math.min(...times) - padding, max: Math.max(...times) + padding };
+    const startTimes = sortedEvents.map((e) => new Date(e.timestamp).getTime());
+    const endTimes = sortedEvents.map((e) =>
+      new Date(e.endTimestamp || e.timestamp).getTime()
+    );
+    const allTimes = [...startTimes, ...endTimes];
+    const padding = (Math.max(...allTimes) - Math.min(...allTimes)) * 0.1 || 86400000;
+    return { min: Math.min(...allTimes) - padding, max: Math.max(...allTimes) + padding };
   }, [sortedEvents]);
 
   const totalDuration = timeBounds.max - timeBounds.min;
@@ -58,6 +76,12 @@ export const TimelineBar = () => {
         <ChevronUp size={14} />
         <Calendar size={14} />
         时间轴 · {events.length} 个事件
+        {conflictEventIds.size > 0 && (
+          <span className="flex items-center gap-0.5 text-accent-red">
+            <AlertTriangle size={12} />
+            {conflictEventIds.size} 个冲突
+          </span>
+        )}
       </button>
     );
   }
@@ -71,6 +95,12 @@ export const TimelineBar = () => {
           <span className="text-[10px] text-parchment-400 font-body">
             共 {events.length} 个事件
           </span>
+          {conflictEventIds.size > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] text-accent-red font-body">
+              <AlertTriangle size={10} />
+              {conflictEventIds.size} 个时间冲突
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -108,52 +138,97 @@ export const TimelineBar = () => {
       </div>
 
       <div className="px-6 pb-3 pt-1">
-        <div className="relative h-24 bg-cork-900/40 rounded-md border border-cork-700">
+        <div className="relative h-28 bg-cork-900/40 rounded-md border border-cork-700">
           <div className="absolute left-0 right-0 top-1/2 h-px bg-gradient-to-r from-transparent via-cork-500 to-transparent" />
 
-          <div className="absolute left-0 right-0 top-1 bottom-3">
+          <div className="absolute left-0 right-0 top-2 bottom-6">
             {sortedEvents.map((event, idx) => {
-              const t = new Date(event.timestamp).getTime();
-              const position = totalDuration > 0 ? ((t - timeBounds.min) / totalDuration) * 100 : 50;
+              const startTime = new Date(event.timestamp).getTime();
+              const endTime = new Date(
+                event.endTimestamp || event.timestamp
+              ).getTime();
+              const startPosition =
+                totalDuration > 0
+                  ? ((startTime - timeBounds.min) / totalDuration) * 100
+                  : 50;
+              const endPosition =
+                totalDuration > 0
+                  ? ((endTime - timeBounds.min) / totalDuration) * 100
+                  : 52;
+              const width = Math.max(endPosition - startPosition, 2);
+
               const isFiltered =
-                (timeRangeFilter.start && t < new Date(timeRangeFilter.start).getTime()) ||
-                (timeRangeFilter.end && t > new Date(timeRangeFilter.end).getTime());
+                (timeRangeFilter.start &&
+                  startTime < new Date(timeRangeFilter.start).getTime()) ||
+                (timeRangeFilter.end &&
+                  startTime > new Date(timeRangeFilter.end).getTime());
+
+              const hasConflict = conflictEventIds.has(event.id);
+              const isEven = idx % 2 === 0;
 
               return (
                 <button
                   key={event.id}
                   onClick={() => handleEventClick(event.id)}
-                  style={{ left: `${position}%` }}
+                  style={{
+                    left: `${startPosition}%`,
+                    width: `${width}%`,
+                    top: isEven ? '0%' : '50%',
+                  }}
                   className={cn(
-                    'absolute -translate-x-1/2 top-0 group transition-all duration-200',
+                    'absolute group transition-all duration-200',
                     isFiltered && 'opacity-30'
                   )}
                 >
                   <div
                     className={cn(
-                      'w-4 h-4 rounded-full border-2 border-cork-100 shadow-pin flex items-center justify-center transition-transform group-hover:scale-125',
-                      isFiltered ? 'bg-cork-600' : ''
+                      'h-6 rounded-md border-2 shadow-pin flex items-center justify-center transition-all group-hover:scale-y-110 relative overflow-hidden',
+                      hasConflict
+                        ? 'border-accent-red animate-pulse'
+                        : 'border-cork-100'
                     )}
                     style={{
-                      backgroundColor: isFiltered ? undefined : importanceColors[event.importance],
+                      backgroundColor: isFiltered
+                        ? '#7c6850'
+                        : importanceColors[event.importance],
+                      boxShadow: hasConflict
+                        ? '0 0 12px 2px rgba(220, 38, 38, 0.6)'
+                        : undefined,
                     }}
                   >
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                    {hasConflict && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-accent-red/40 to-transparent animate-pulse" />
+                    )}
+                    <div className="relative w-full px-1 truncate text-[9px] font-display text-white/90">
+                      {event.title}
+                    </div>
                   </div>
-                  <div className="w-px h-4 bg-cork-500 mx-auto" />
+
                   <div
                     className={cn(
-                      'bg-paper-texture bg-parchment-100 rounded shadow-paper border border-cork-300 px-2 py-1 text-left w-28 transform -translate-x-1/2 mt-0.5 transition-all',
-                      idx % 2 === 0 ? '' : 'order-first mb-0.5',
-                      'group-hover:shadow-paper-hover group-hover:-translate-y-0.5'
+                      'bg-paper-texture bg-parchment-100 rounded shadow-paper border border-cork-300 px-2 py-1 text-left w-28 transform -translate-x-1/2 transition-all absolute left-1/2 z-10 opacity-0 group-hover:opacity-100 pointer-events-none',
+                      isEven ? 'top-full mt-1' : 'bottom-full mb-1'
                     )}
                   >
-                    <div className="text-[10px] text-accent-gold font-body">
-                      {formatShortDate(event.timestamp)}
+                    <div className="flex items-center gap-1 mb-0.5">
+                      {hasConflict && (
+                        <AlertTriangle size={10} className="text-accent-red" />
+                      )}
+                      <div className="text-[10px] text-accent-gold font-body">
+                        {formatShortDate(event.timestamp)}
+                      </div>
                     </div>
                     <div className="text-[11px] font-display text-ink-800 truncate leading-tight">
                       {event.title}
                     </div>
+                    <div className="text-[9px] text-ink-500 font-body mt-0.5">
+                      {formatTime(event.timestamp)} — {formatTime(event.endTimestamp || event.timestamp)}
+                    </div>
+                    {hasConflict && (
+                      <div className="text-[9px] text-accent-red font-body mt-0.5 font-bold">
+                        ⚠ 存在时间冲突
+                      </div>
+                    )}
                   </div>
                 </button>
               );
@@ -177,3 +252,13 @@ export const TimelineBar = () => {
     </div>
   );
 };
+
+function formatTime(isoString: string): string {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return isoString;
+  }
+}
