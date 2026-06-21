@@ -16,8 +16,8 @@ function getCommuteMinutes(
   locationBId: string | undefined,
   commuteTimes: CommuteTime[],
   defaultMinutes: number
-): number {
-  if (!locationAId || !locationBId) return defaultMinutes;
+): number | undefined {
+  if (!locationAId || !locationBId) return undefined;
   if (locationAId === locationBId) return 0;
   const found = commuteTimes.find(
     (ct) =>
@@ -69,6 +69,8 @@ export function checkTimeConflicts(
         commuteTimes,
         defaultCommuteMinutes
       );
+
+      if (commuteMinutes === undefined) continue;
 
       if (gapMinutes < commuteMinutes) {
         const shortage = commuteMinutes - gapMinutes;
